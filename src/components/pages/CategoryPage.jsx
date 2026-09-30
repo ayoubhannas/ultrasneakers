@@ -16,7 +16,10 @@ const CategoryPage = () => {
   const [category, setCategory] = useState("");
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [theme, setTheme] = useState("light");
+  const [theme, setTheme] = useState(() => {
+    const storedTheme = localStorage.getItem("ultrasneakers-theme");
+    return storedTheme || "light";
+  });
 
   const { addToCart } = useCart();
   const { addToWishlist, isInWishlist, removeFromWishlist } = useWishlist();
@@ -37,8 +40,17 @@ const CategoryPage = () => {
     }
   }, [location]);
 
+  useEffect(() => {
+    const nextTheme = theme === "dark" ? "dark" : "light";
+    localStorage.setItem("ultrasneakers-theme", nextTheme);
+    document.documentElement.setAttribute("data-theme", nextTheme);
+    window.dispatchEvent(
+      new CustomEvent("theme:change", { detail: nextTheme }),
+    );
+  }, [theme]);
+
   const toggleTheme = () => {
-    setTheme(theme === "light" ? "dark" : "light");
+    setTheme((currentTheme) => (currentTheme === "light" ? "dark" : "light"));
   };
 
   // Get category title based on URL parameter
@@ -92,22 +104,22 @@ const CategoryPage = () => {
         // Filter products based on category
         if (category === "new-arrivals") {
           filteredProducts = allProducts.filter(
-            (p) => p.category === "new-arrivals" || p.isNewArrival === true
+            (p) => p.category === "new-arrivals" || p.isNewArrival === true,
           );
         } else if (category === "classe") {
           filteredProducts = allProducts.filter(
-            (p) => p.category === "classe" || p.category === "Classe"
+            (p) => p.category === "classe" || p.category === "Classe",
           );
         } else if (category === "sport") {
           filteredProducts = allProducts.filter(
-            (p) => p.category === "sport" || p.category === "Sport"
+            (p) => p.category === "sport" || p.category === "Sport",
           );
         } else if (category === "luxury") {
           filteredProducts = allProducts.filter(
             (p) =>
               p.category === "luxury" ||
               p.category === "Luxey" ||
-              p.category === "Luxury"
+              p.category === "Luxury",
           );
         } else {
           filteredProducts = allProducts;
@@ -162,7 +174,7 @@ const CategoryPage = () => {
         // Filter based on category
         if (category) {
           filteredProducts = filteredProducts.filter(
-            (p) => p.category.toLowerCase() === category.toLowerCase()
+            (p) => p.category.toLowerCase() === category.toLowerCase(),
           );
         }
       }
@@ -327,7 +339,9 @@ const ProductCard = styled.div`
   border-radius: 8px;
   border: 1px solid ${(props) => props.theme.borderColor};
   overflow: hidden;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  transition:
+    transform 0.3s ease,
+    box-shadow 0.3s ease;
 
   &:hover {
     transform: translateY(-5px);

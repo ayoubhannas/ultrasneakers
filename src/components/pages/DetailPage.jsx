@@ -9,7 +9,7 @@ import { useCart } from "../../context/CartContext";
 import { useWishlist } from "../../context/WishlistContext.jsx";
 import Navbar from "../Navbar.jsx";
 import Footer from "../Footer.jsx";
-import { notifyCartAdded, notifyCartToast } from "../CartToast.jsx";
+import { notifyCartAdded, notifyCartToast } from "../cartToastUtils.js";
 import { GlobalStyles } from "../../styles/GlobalStyles.jsx";
 import { lightTheme, darkTheme } from "../../styles/Theme.js";
 import SizeGuideModalComponent from "../SizeGuideModal";
@@ -22,11 +22,23 @@ const DetailPage = () => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showSizeDropdown, setShowSizeDropdown] = useState(false);
   const [deliveryTime, setDeliveryTime] = useState({ min: 24, max: 72 });
-  const [theme, setTheme] = useState("light");
+  const [theme, setTheme] = useState(() => {
+    const storedTheme = localStorage.getItem("ultrasneakers-theme");
+    return storedTheme || "light";
+  });
   const [showSizeGuide, setShowSizeGuide] = useState(false);
 
+  useEffect(() => {
+    const nextTheme = theme === "dark" ? "dark" : "light";
+    localStorage.setItem("ultrasneakers-theme", nextTheme);
+    document.documentElement.setAttribute("data-theme", nextTheme);
+    window.dispatchEvent(
+      new CustomEvent("theme:change", { detail: nextTheme }),
+    );
+  }, [theme]);
+
   const toggleTheme = () => {
-    setTheme(theme === "light" ? "dark" : "light");
+    setTheme((currentTheme) => (currentTheme === "light" ? "dark" : "light"));
   };
 
   const { addToCart } = useCart();

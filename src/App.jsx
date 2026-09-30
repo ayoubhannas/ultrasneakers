@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import styled, { ThemeProvider } from "styled-components";
 import { GlobalStyles } from "./styles/GlobalStyles.jsx";
 import { lightTheme, darkTheme } from "./styles/Theme.js";
@@ -11,10 +11,22 @@ import FeaturedProducts from "./components/pages/FeaturedProducts.jsx";
 import "./App.css";
 
 function App() {
-  const [theme, setTheme] = useState("light");
+  const [theme, setTheme] = useState(() => {
+    const storedTheme = localStorage.getItem("ultrasneakers-theme");
+    return storedTheme || "light";
+  });
+
+  useEffect(() => {
+    const nextTheme = theme === "dark" ? "dark" : "light";
+    localStorage.setItem("ultrasneakers-theme", nextTheme);
+    document.documentElement.setAttribute("data-theme", nextTheme);
+    window.dispatchEvent(
+      new CustomEvent("theme:change", { detail: nextTheme }),
+    );
+  }, [theme]);
 
   const toggleTheme = () => {
-    setTheme(theme === "light" ? "dark" : "light");
+    setTheme((currentTheme) => (currentTheme === "light" ? "dark" : "light"));
   };
 
   return (
