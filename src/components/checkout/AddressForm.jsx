@@ -308,10 +308,12 @@ const Input = styled.input`
 const Select = styled.select`
   padding: 0.75rem;
   border: 1px solid
-    ${(props) => (props.$hasError ? props.theme.primary : "#e0e0e0")};
+    ${(props) =>
+      props.$hasError ? props.theme.primary : props.theme.borderColor};
   border-radius: 4px;
   font-size: 1rem;
-  background-color: white;
+  background-color: ${(props) => props.theme.inputBackground};
+  color: ${(props) => props.theme.text};
 
   &:focus {
     outline: none;
@@ -342,7 +344,7 @@ const ErrorMessage = styled.div`
 
 const CountryInfo = styled.div`
   padding: 0.75rem;
-  background-color: #f5f5f5;
+  background-color: ${(props) => props.theme.backgroundAlt};
   border-radius: 4px;
   font-size: 0.9rem;
 `;

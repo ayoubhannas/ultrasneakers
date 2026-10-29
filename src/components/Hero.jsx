@@ -128,16 +128,30 @@ const HeroImageContainer = styled.div`
   align-items: center;
   justify-content: center;
   position: relative;
+
+  @media (max-width: 768px) {
+    width: 100%;
+    min-width: 0;
+  }
 `;
 
 const HeroImage = styled.img`
   max-width: 100%;
   height: 600px;
   transform: rotate(-10deg);
-  transition: transform 0.5s ease, opacity 0.3s ease;
+  transition:
+    transform 0.5s ease,
+    opacity 0.3s ease;
 
   &:hover {
     transform: rotate(-5deg) scale(1.05);
+  }
+
+  @media (max-width: 768px) {
+    width: 100%;
+    height: auto;
+    max-height: 360px;
+    object-fit: contain;
   }
 `;
 

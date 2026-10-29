@@ -8,8 +8,7 @@ import { formatPrice } from "../../utils/formatPrice";
 
 const CheckoutPage = () => {
   const navigate = useNavigate();
-  const { cartItems, clearCart, subtotal, shipping, tax, total } =
-    useContext(CartContext);
+  const { clearCart, subtotal, shipping, tax, total } = useContext(CartContext);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");

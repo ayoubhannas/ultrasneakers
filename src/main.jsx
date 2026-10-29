@@ -16,6 +16,7 @@ import Dashboard from "./components/Admin/Dashboard.jsx";
 import ProductList from "./components/Admin/ProductList.jsx";
 import ProductForm from "./components/Admin/ProductForm.jsx";
 import OrderList from "./components/Admin/OrderList.jsx";
+import OrderDetail from "./components/Admin/OrderDetail.jsx";
 import AdminLoginPage from "./components/Auth/AdminLoginPage.jsx";
 import CartToast from "./components/CartToast.jsx";
 import "./index.css";
@@ -61,6 +62,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                 <Route path="products/add" element={<ProductForm />} />
                 <Route path="products/edit/:id" element={<ProductForm />} />
                 <Route path="orders" element={<OrderList />} />
+                <Route path="orders/:orderId" element={<OrderDetail />} />
                 <Route index element={<Dashboard />} />
               </Route>
             </Routes>

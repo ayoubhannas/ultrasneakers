@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useDispatch } from "react-redux";
 import { logout } from "@/Redux/Auth/authSlice";
+import api from "../../Api/authApi";
 
 const AdminLayoutContainer = styled.div`
   display: flex;
@@ -26,18 +27,37 @@ const AdminLayoutContainer = styled.div`
 `;
 
 const Sidebar = styled.aside`
-  width: ${(props) => (props.$isOpen ? "250px" : "0")};
+  width: ${(props) => (props.$isOpen ? "min(250px, calc(100vw - 3rem))" : "0")};
   background-color: ${(props) => props.theme.backgroundAlt};
   border-right: 1px solid ${(props) => props.theme.borderColor};
   transition: width 0.3s ease;
   overflow: hidden;
   position: fixed;
+  top: 0;
+  left: 0;
   height: 100vh;
-  z-index: 100;
+  height: 100dvh;
+  z-index: 101;
+  box-shadow: ${(props) =>
+    props.$isOpen ? "0 8px 32px rgba(0, 0, 0, 0.2)" : "none"};
 
   @media (min-width: 768px) {
     width: 250px;
-    position: relative;
+    position: fixed;
+    box-shadow: none;
+  }
+`;
+
+const SidebarBackdrop = styled.button`
+  display: none;
+
+  @media (max-width: 767px) {
+    display: ${(props) => (props.$isOpen ? "block" : "none")};
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    border: 0;
+    background: rgba(0, 0, 0, 0.45);
   }
 `;
 
@@ -85,21 +105,28 @@ const NavItem = styled.div`
 
 const MainContent = styled.main`
   flex: 1;
+  min-width: 0;
   padding: 1.5rem;
-  margin-left: ${(props) => (props.$sidebarOpen ? "0" : "0")};
+  margin-left: 0;
   transition: margin-left 0.3s ease;
   width: 100%;
 
   @media (min-width: 768px) {
-    margin-left: ${(props) => (props.$sidebarOpen ? "250px" : "0")};
-    width: calc(100% - ${(props) => (props.$sidebarOpen ? "250px" : "0")});
+    margin-left: 250px;
+    width: calc(100% - 250px);
+  }
+
+  @media (max-width: 480px) {
+    padding: 1rem;
   }
 `;
 
 const TopBar = styled.header`
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
+  gap: 0.75rem;
   margin-bottom: 2rem;
   padding-bottom: 1rem;
   border-bottom: 1px solid ${(props) => props.theme.borderColor};
@@ -109,6 +136,10 @@ const PageTitle = styled.h1`
   font-size: 1.5rem;
   font-weight: 600;
   margin: 0;
+
+  @media (max-width: 480px) {
+    font-size: 1.15rem;
+  }
 `;
 
 const ActionButtons = styled.div`
@@ -148,6 +179,7 @@ const AdminLayout = () => {
       : window.matchMedia("(prefers-color-scheme: dark)").matches;
   });
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [newOrderCount, setNewOrderCount] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -170,18 +202,33 @@ const AdminLayout = () => {
     setDarkMode(newThemeValue);
     localStorage.setItem(
       "ultrasneakers-theme",
-      newThemeValue ? "dark" : "light"
+      newThemeValue ? "dark" : "light",
     );
   };
 
   useEffect(() => {
     document.documentElement.setAttribute(
       "data-theme",
-      darkMode ? "dark" : "light"
+      darkMode ? "dark" : "light",
     );
     document.body.style.backgroundColor = darkMode ? "#121212" : "#ffffff";
     document.body.style.color = darkMode ? "#f5f5f5" : "#1a1a1a";
   }, [darkMode]);
+
+  useEffect(() => {
+    const fetchNewOrderCount = async () => {
+      try {
+        const response = await api.get("/api/admin/dashboard");
+        setNewOrderCount(response.data.data.ordersByStatus.new || 0);
+      } catch {
+        setNewOrderCount(0);
+      }
+    };
+
+    fetchNewOrderCount();
+    const interval = window.setInterval(fetchNewOrderCount, 30000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
@@ -190,6 +237,11 @@ const AdminLayout = () => {
   const handleLogout = () => {
     dispatch(logout());
     navigate("/admin/login");
+  };
+
+  const navigateTo = (path) => {
+    navigate(path);
+    if (window.innerWidth < 768) setSidebarOpen(false);
   };
 
   const getPageTitle = () => {
@@ -216,27 +268,54 @@ const AdminLayout = () => {
           <SidebarNav>
             <NavItem
               $active={isActive("dashboard")}
-              onClick={() => navigate("/admin/dashboard")}
+              onClick={() => navigateTo("/admin/dashboard")}
             >
               <LayoutDashboard size={18} />
               Tableau de Bord
             </NavItem>
             <NavItem
               $active={isActive("products")}
-              onClick={() => navigate("/admin/products")}
+              onClick={() => navigateTo("/admin/products")}
             >
               <ShoppingBag size={18} />
               Produits
             </NavItem>
             <NavItem
               $active={isActive("orders")}
-              onClick={() => navigate("/admin/orders")}
+              onClick={() => navigateTo("/admin/orders")}
             >
               <Package size={18} />
               Commandes
+              {newOrderCount > 0 && (
+                <span
+                  style={{
+                    marginLeft: "auto",
+                    backgroundColor: "#ef4444",
+                    color: "white",
+                    borderRadius: "9999px",
+                    minWidth: "1.25rem",
+                    height: "1.25rem",
+                    padding: "0 0.25rem",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "0.7rem",
+                    fontWeight: 600,
+                  }}
+                >
+                  {newOrderCount}
+                </span>
+              )}
             </NavItem>
           </SidebarNav>
         </Sidebar>
+
+        <SidebarBackdrop
+          type="button"
+          $isOpen={sidebarOpen}
+          aria-label="Fermer le menu d’administration"
+          onClick={() => setSidebarOpen(false)}
+        />
 
         <MainContent $sidebarOpen={sidebarOpen}>
           <TopBar>

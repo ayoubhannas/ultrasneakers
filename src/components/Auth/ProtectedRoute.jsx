@@ -11,7 +11,7 @@ const ProtectedRoute = ({ children }) => {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const response = await api.get("/api/check-auth");
+        const response = await api.get("/api/admin/check-auth");
         if (response.status !== 200) {
           throw new Error("Échec de la vérification d'authentification");
         }
@@ -23,7 +23,7 @@ const ProtectedRoute = ({ children }) => {
           localStorage.removeItem("token");
         } else if (error.response?.status === 404) {
           console.warn(
-            "Route /check-auth non trouvée. Vérifiez routes/api.php."
+            "Route /admin/check-auth non trouvée. Vérifiez routes/api.php.",
           );
         }
       }

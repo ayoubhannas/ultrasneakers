@@ -4,13 +4,7 @@ import styled from "styled-components";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { useState } from "react";
 
-const OrderSummary = ({
-  cartItems,
-  subtotal,
-  deliveryFee,
-  total,
-  deliveryOption,
-}) => {
+const OrderSummary = ({ cartItems, subtotal, total, deliveryOption }) => {
   const [isExpanded, setIsExpanded] = useState(true);
 
   return (
@@ -53,7 +47,7 @@ const OrderSummary = ({
 
           <SummaryRow>
             <span>Livraison</span>
-            <span>{deliveryFee} MAD</span>
+            <span>Livraison gratuite</span>
           </SummaryRow>
 
           <SummaryTotal>
@@ -82,12 +76,12 @@ const OrderSummary = ({
 };
 
 const SummaryContainer = styled.div`
-  background-color: white;
-  border-left: 1px solid #eaeaea;
+  background-color: ${(props) => props.theme.cardBackground};
+  border-left: 1px solid ${(props) => props.theme.borderColor};
 
   @media (max-width: 1024px) {
     border-left: none;
-    border-top: 1px solid #eaeaea;
+    border-top: 1px solid ${(props) => props.theme.borderColor};
   }
 `;
 
@@ -96,7 +90,7 @@ const SummaryHeader = styled.div`
   justify-content: space-between;
   align-items: center;
   padding: 1.5rem;
-  border-bottom: 1px solid #eaeaea;
+  border-bottom: 1px solid ${(props) => props.theme.borderColor};
   cursor: pointer;
 `;
 
@@ -129,7 +123,7 @@ const ItemsList = styled.div`
   }
 
   &::-webkit-scrollbar-track {
-    background: #f5f5f5;
+    background: ${(props) => props.theme.backgroundAlt};
   }
 
   &::-webkit-scrollbar-thumb {
@@ -147,7 +141,7 @@ const ItemImage = styled.img`
   width: 60px;
   height: 60px;
   object-fit: contain;
-  background-color: #f5f5f5;
+  background-color: ${(props) => props.theme.backgroundAlt};
   border-radius: 4px;
 `;
 
@@ -182,7 +176,7 @@ const PromoCodeSection = styled.div`
 const PromoCodeInput = styled.input`
   flex: 1;
   padding: 0.75rem;
-  border: 1px solid #e0e0e0;
+  border: 1px solid ${(props) => props.theme.borderColor};
   border-radius: 4px;
   font-size: 0.9rem;
 
@@ -193,8 +187,8 @@ const PromoCodeInput = styled.input`
 `;
 
 const ApplyButton = styled.button`
-  background-color: #f5f5f5;
-  border: 1px solid #e0e0e0;
+  background-color: ${(props) => props.theme.backgroundAlt};
+  border: 1px solid ${(props) => props.theme.borderColor};
   border-radius: 4px;
   padding: 0 1rem;
   font-weight: 500;
@@ -202,7 +196,7 @@ const ApplyButton = styled.button`
   transition: all 0.2s ease;
 
   &:hover {
-    background-color: #eaeaea;
+    background-color: ${(props) => props.theme.hoverBackground};
   }
 `;
 
@@ -210,7 +204,7 @@ const SummaryRow = styled.div`
   display: flex;
   justify-content: space-between;
   padding: 0.75rem 0;
-  border-top: 1px solid #eaeaea;
+  border-top: 1px solid ${(props) => props.theme.borderColor};
 
   &:first-of-type {
     border-top: none;
@@ -221,8 +215,8 @@ const SummaryTotal = styled.div`
   display: flex;
   justify-content: space-between;
   padding: 1rem 0;
-  border-top: 1px solid #eaeaea;
-  border-bottom: 1px solid #eaeaea;
+  border-top: 1px solid ${(props) => props.theme.borderColor};
+  border-bottom: 1px solid ${(props) => props.theme.borderColor};
   font-weight: 600;
   font-size: 1.1rem;
 `;

@@ -110,21 +110,23 @@ const PaymentOption = styled.div`
   padding: 1.25rem;
   border: 1px solid
     ${(props) => {
-      if (props.$disabled) return "#e0e0e0";
-      return props.$selected ? props.theme.primary : "#e0e0e0";
+      if (props.$disabled) return props.theme.borderColor;
+      return props.$selected ? props.theme.primary : props.theme.borderColor;
     }};
   border-radius: 8px;
   cursor: ${(props) => (props.$disabled ? "not-allowed" : "pointer")};
   transition: all 0.2s ease;
   background-color: ${(props) => {
-    if (props.$disabled) return "#f9f9f9";
-    return props.$selected ? `${props.theme.primary}10` : "white";
+    if (props.$disabled) return props.theme.backgroundAlt;
+    return props.$selected
+      ? `${props.theme.primary}10`
+      : props.theme.cardBackground;
   }};
   opacity: ${(props) => (props.$disabled ? 0.7 : 1)};
 
   &:hover {
     border-color: ${(props) =>
-      props.$disabled ? "#e0e0e0" : props.theme.primary};
+      props.$disabled ? props.theme.borderColor : props.theme.primary};
   }
 `;
 
@@ -135,7 +137,7 @@ const OptionIcon = styled.div`
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background-color: #f5f5f5;
+  background-color: ${(props) => props.theme.backgroundAlt};
   margin-right: 1rem;
   color: ${(props) => (props.$disabled ? "#999" : props.theme.primary)};
 `;

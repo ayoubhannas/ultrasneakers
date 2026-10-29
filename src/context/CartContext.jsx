@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect } from "react";
+import axios from "axios";
 
 export const CartContext = createContext();
 
@@ -8,7 +9,7 @@ export const useCart = () => {
   const context = useContext(CartContext);
   if (!context) {
     throw new Error(
-      "useCart doit être utilisé à l'intérieur d'un CartProvider"
+      "useCart doit être utilisé à l'intérieur d'un CartProvider",
     );
   }
   return context;
@@ -41,13 +42,37 @@ export const CartProvider = ({ children }) => {
     setCartCount(count);
   };
 
-  const addToCart = (product) => {
+  const addToCart = async (product) => {
+    const selectedSize =
+      product?.selectedSize ?? product?.size ?? product?.taille;
+
+    if (
+      selectedSize === null ||
+      selectedSize === undefined ||
+      (typeof selectedSize === "string" && selectedSize.trim() === "")
+    ) {
+      return false;
+    }
+
+    if (!product?.id) {
+      return false;
+    }
+
+    try {
+      await axios.post("http://localhost:8000/api/cart/validate", {
+        product_id: product.id,
+        selectedSize,
+      });
+    } catch {
+      return false;
+    }
+
     setCart((prevCart) => {
       const existingItemIndex = prevCart.findIndex(
         (item) =>
           item.id === product.id &&
           item.selectedSize === product.selectedSize &&
-          item.selectedColor === product.selectedColor
+          item.selectedColor === product.selectedColor,
       );
 
       if (existingItemIndex !== -1) {
@@ -58,6 +83,8 @@ export const CartProvider = ({ children }) => {
         return [...prevCart, { ...product, quantity: product.quantity || 1 }];
       }
     });
+
+    return true;
   };
 
   const removeFromCart = (itemId) => {
@@ -69,8 +96,8 @@ export const CartProvider = ({ children }) => {
 
     setCart((prevCart) =>
       prevCart.map((item) =>
-        item.id === itemId ? { ...item, quantity: newQuantity } : item
-      )
+        item.id === itemId ? { ...item, quantity: newQuantity } : item,
+      ),
     );
   };
 
@@ -80,10 +107,10 @@ export const CartProvider = ({ children }) => {
 
   const subtotal = cart.reduce(
     (total, item) => total + item.price * item.quantity,
-    0
+    0,
   );
 
-  const shipping = subtotal > 0 ? (subtotal > 1000 ? 0 : 50) : 0;
+  const shipping = 0;
 
   const total = subtotal + shipping;
 

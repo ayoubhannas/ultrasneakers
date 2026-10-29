@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { Heart, Trash2, ShoppingBag, X, AlertCircle } from "lucide-react";
 import { useWishlist } from "../../context/WishlistContext";
 import { createPortal } from "react-dom";
 import { useCart } from "../../context/CartContext";
+import { notifyCartToast } from "../cartToastUtils.js";
 
 const ModalOverlay = styled.div`
   position: fixed;
@@ -35,12 +37,18 @@ const ModalContainer = styled.div`
   width: 100%;
   max-width: 600px;
   max-height: 85vh;
+  max-height: 85dvh;
   display: flex;
   flex-direction: column;
   border: 1px solid ${(props) => props.theme.borderColor};
   transform: ${(props) =>
     props.$isOpen ? "translateY(0)" : "translateY(-20px)"};
   transition: transform 0.3s ease;
+
+  @media (max-width: 480px) {
+    max-height: 90vh;
+    max-height: 90dvh;
+  }
 `;
 
 const ModalHeader = styled.div`
@@ -103,6 +111,16 @@ const ModalFooter = styled.div`
   border-top: 1px solid ${(props) => props.theme.borderColor};
   display: flex;
   justify-content: space-between;
+  gap: 0.5rem;
+
+  @media (max-width: 480px) {
+    padding: 0.75rem;
+    flex-wrap: wrap;
+
+    button {
+      flex: 1 1 100%;
+    }
+  }
 `;
 
 const Button = styled.button.attrs({ type: "button" })`
@@ -253,6 +271,7 @@ const WishlistItemCategory = styled.div`
 
 const WishlistItemActions = styled.div`
   display: flex;
+  min-width: 0;
   gap: 0.5rem;
 `;
 
@@ -298,6 +317,7 @@ const WishlistModal = ({ isOpen, onClose }) => {
     useWishlist();
   const modalRef = useRef(null);
   const { addToCart } = useCart();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -348,14 +368,34 @@ const WishlistModal = ({ isOpen, onClose }) => {
     removeFromWishlist(productId);
   };
 
-  const handleAddToCart = (product, e) => {
+  const handleAddToCart = async (product, e) => {
     e.stopPropagation();
-    addToCart({
+    const selectedSize = product.selectedSize ?? product.size ?? product.taille;
+    const added = await addToCart({
       ...product,
-      selectedSize: product.sizes?.[0]?.size || "EUR 40",
+      selectedSize,
       selectedColor: "Black",
       quantity: 1,
     });
+
+    if (!added) {
+      if (selectedSize) {
+        removeFromWishlist(product.id);
+        notifyCartToast({
+          title: "Ce produit n’est plus disponible.",
+          productName: product.name || "Produit",
+          showActions: false,
+        });
+        return;
+      }
+
+      notifyCartToast({
+        title: "Choisissez une taille avant d’ajouter ce produit au panier.",
+        productName: product.name || "Produit",
+        showActions: false,
+      });
+      navigate(`/product/${product.id}`);
+    }
   };
 
   const handleClearWishlist = () => {
@@ -376,6 +416,8 @@ const WishlistModal = ({ isOpen, onClose }) => {
       if (typeof image === "string") return image;
       if (image && image.path)
         return `http://localhost:8000/storage/${image.path}`;
+      if (image?.image_url)
+        return `http://localhost:8000/storage/${image.image_url}`;
     }
 
     return "/placeholder.svg?height=200&width=200";

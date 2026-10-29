@@ -73,7 +73,9 @@ const PaymentForm = ({ initialValues, onSubmit }) => {
       newErrors.cvv = "Please enter a valid CVV";
     }
 
-    const currentYear = new Date().getFullYear() % 100;
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear() % 100;
+    const currentMonth = currentDate.getMonth() + 1;
 
     if (formData.expiryYear && formData.expiryMonth) {
       const year = Number.parseInt(formData.expiryYear, 10);

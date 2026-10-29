@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { Upload, X, Save, ArrowLeft } from "lucide-react";
-import axios from "axios";
+import api from "../../Api/authApi";
 
 const Button = styled.button`
   display: inline-flex;
@@ -31,7 +31,7 @@ const Button = styled.button`
       }
     `
       : props.variant === "ghost"
-      ? `
+        ? `
       background-color: transparent;
       border: none;
       color: ${props.theme.text};
@@ -40,8 +40,8 @@ const Button = styled.button`
         background-color: ${props.theme.hoverBackground};
       }
     `
-      : props.variant === "destructive"
-      ? `
+        : props.variant === "destructive"
+          ? `
       background-color: #ef4444;
       border: none;
       color: white;
@@ -50,7 +50,7 @@ const Button = styled.button`
         background-color: #dc2626;
       }
     `
-      : `
+          : `
       background-color: ${props.theme.primary};
       border: none;
       color: white;
@@ -142,6 +142,10 @@ const CardDescription = styled.p`
 
 const CardContent = styled.div`
   padding: 1.5rem;
+
+  @media (max-width: 480px) {
+    padding: 1rem;
+  }
 `;
 
 const CardFooter = styled.div`
@@ -153,6 +157,7 @@ const CardFooter = styled.div`
 
 const RadioGroup = styled.div`
   display: flex;
+  flex-wrap: wrap;
   gap: 1rem;
 `;
 
@@ -177,6 +182,16 @@ const FormContainer = styled.div`
   flex-direction: column;
   gap: 1.5rem;
   width: 100%;
+`;
+
+const FormColumns = styled.div`
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr;
+  }
 `;
 
 const FormSection = styled(Card)`
@@ -269,6 +284,7 @@ const SizeGrid = styled.div`
 
 const SizeCheckboxWrapper = styled.div`
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem;
@@ -288,11 +304,31 @@ const SizeCheckboxWrapper = styled.div`
   }
 `;
 
+const SizeAvailabilityControl = styled.div`
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.7rem;
+  color: ${(props) => props.theme.textSecondary};
+
+  label {
+    cursor: pointer;
+  }
+`;
+
 const ActionBar = styled.div`
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
+  gap: 0.75rem;
   margin-bottom: 1.5rem;
+
+  @media (max-width: 480px) {
+    align-items: stretch;
+    flex-direction: column;
+  }
 `;
 
 const ProductForm = () => {
@@ -308,6 +344,7 @@ const ProductForm = () => {
     category_id: "",
     status: "disponible",
     sizes: [],
+    sizeAvailability: {},
     images: [],
     newImages: [],
     removedImages: [],
@@ -322,19 +359,15 @@ const ProductForm = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const categoriesRes = await axios.get(
-          "http://localhost:8000/api/categories"
-        );
+        const categoriesRes = await api.get("/api/categories");
         setCategories(categoriesRes.data);
 
-        const sizesRes = await axios.get("http://localhost:8000/api/sizes");
+        const sizesRes = await api.get("/api/sizes");
         setAvailableSizes(sizesRes.data);
 
         if (isEditing) {
           try {
-            const productRes = await axios.get(
-              `http://localhost:8000/api/admin/products/${id}`
-            );
+            const productRes = await api.get(`/api/admin/products/${id}`);
             const productData = productRes.data.data;
             setFormData({
               id: productData.id || null,
@@ -346,6 +379,13 @@ const ProductForm = () => {
               sizes: productData.sizes
                 ? productData.sizes.map((size) => size.id)
                 : [],
+              sizeAvailability: Object.fromEntries(
+                (productData.sizes || []).map((size) => [
+                  size.id,
+                  size.pivot?.is_available !== false &&
+                    Number(size.pivot?.is_available ?? 1) !== 0,
+                ]),
+              ),
               images: productData.images
                 ? productData.images.map((img) => img.image_url)
                 : [],
@@ -396,6 +436,16 @@ const ProductForm = () => {
       ? formData.sizes.filter((s) => s !== sizeId)
       : [...formData.sizes, sizeId];
     setFormData({ ...formData, sizes: newSizes });
+  };
+
+  const handleSizeAvailabilityChange = (sizeId, isAvailable) => {
+    setFormData((current) => ({
+      ...current,
+      sizeAvailability: {
+        ...current.sizeAvailability,
+        [sizeId]: isAvailable,
+      },
+    }));
   };
 
   const handleImageUpload = (e) => {
@@ -449,6 +499,10 @@ const ProductForm = () => {
     if (formData.sizes.length > 0) {
       formData.sizes.forEach((sizeId, index) => {
         data.append(`sizes[${index}]`, sizeId);
+        data.append(
+          `size_availability[${sizeId}]`,
+          formData.sizeAvailability[sizeId] === false ? "0" : "1",
+        );
       });
     }
 
@@ -463,23 +517,14 @@ const ProductForm = () => {
     }
 
     try {
-      let response;
       if (formData.id) {
-        response = await axios.post(
-          `http://localhost:8000/api/admin/products/${id}?_method=PUT`,
-          data,
-          {
-            headers: { "Content-Type": "multipart/form-data" },
-          }
-        );
+        await api.post(`/api/admin/products/${id}?_method=PUT`, data, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
       } else {
-        response = await axios.post(
-          "http://localhost:8000/api/admin/products",
-          data,
-          {
-            headers: { "Content-Type": "multipart/form-data" },
-          }
-        );
+        await api.post("/api/admin/products", data, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
       }
 
       navigate("/admin/products");
@@ -490,7 +535,7 @@ const ProductForm = () => {
             ? Object.entries(error.response.data.errors)
                 .map(([field, messages]) => `${field}: ${messages.join(", ")}`)
                 .join("; ")
-            : "Erreur lors de l'enregistrement du produit. Veuillez réessayer.")
+            : "Erreur lors de l'enregistrement du produit. Veuillez réessayer."),
       );
     }
   };
@@ -582,13 +627,7 @@ const ProductForm = () => {
               />
             </FormGroup>
 
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: "1rem",
-              }}
-            >
+            <FormColumns>
               <FormGroup>
                 <Label htmlFor="category_id">Catégorie</Label>
                 <Select
@@ -637,7 +676,7 @@ const ProductForm = () => {
                   </RadioItem>
                 </RadioGroup>
               </FormGroup>
-            </div>
+            </FormColumns>
 
             <FormGroup>
               <Label htmlFor="featured">Produit en vedette</Label>
@@ -653,9 +692,9 @@ const ProductForm = () => {
 
         <FormSection>
           <CardHeader>
-            <CardTitle>Tailles Disponibles</CardTitle>
+            <CardTitle>Tailles et disponibilité</CardTitle>
             <CardDescription>
-              Sélectionnez toutes les tailles disponibles pour ce produit.
+              Sélectionnez les pointures proposées et leur disponibilité.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -663,7 +702,6 @@ const ProductForm = () => {
               {availableSizes.map((size) => (
                 <SizeCheckboxWrapper
                   key={size.id}
-                  onClick={() => handleSizeToggle(size.id)}
                   data-checked={formData.sizes.includes(size.id)}
                 >
                   <Checkbox
@@ -677,6 +715,25 @@ const ProductForm = () => {
                   >
                     {size.size}
                   </label>
+                  {formData.sizes.includes(size.id) && (
+                    <SizeAvailabilityControl>
+                      <Checkbox
+                        id={`size-available-${size.id}`}
+                        checked={formData.sizeAvailability[size.id] !== false}
+                        onChange={(event) =>
+                          handleSizeAvailabilityChange(
+                            size.id,
+                            event.target.checked,
+                          )
+                        }
+                      />
+                      <label htmlFor={`size-available-${size.id}`}>
+                        {formData.sizeAvailability[size.id] === false
+                          ? "Indisponible"
+                          : "Disponible"}
+                      </label>
+                    </SizeAvailabilityControl>
+                  )}
                 </SizeCheckboxWrapper>
               ))}
             </SizeGrid>
@@ -729,7 +786,7 @@ const ProductForm = () => {
                   <input
                     id="image-upload"
                     type="file"
-                    accept="image/*"
+                    accept=".jpeg,.jpg,.png,.webp,image/jpeg,image/png,image/webp"
                     onChange={handleImageUpload}
                     style={{ display: "none" }}
                     multiple

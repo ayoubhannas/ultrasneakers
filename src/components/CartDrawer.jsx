@@ -17,7 +17,9 @@ const DrawerOverlay = styled.div`
   z-index: 1000;
   opacity: ${(props) => (props.$isOpen ? "1" : "0")};
   visibility: ${(props) => (props.$isOpen ? "visible" : "hidden")};
-  transition: opacity 0.2s ease, visibility 0.2s ease;
+  transition:
+    opacity 0.2s ease,
+    visibility 0.2s ease;
 `;
 
 const DrawerContainer = styled.div`
@@ -31,9 +33,12 @@ const DrawerContainer = styled.div`
   box-shadow: -2px 0px 10px rgba(0, 0, 0, 0.1);
   z-index: 1001;
   overflow-y: auto;
-  transform: ${(props) =>
-    props.$isOpen ? "translateX(0)" : "translateX(100%)"};
-  transition: transform 0.3s ease;
+  clip-path: ${(props) => (props.$isOpen ? "inset(0)" : "inset(0 0 0 100%)")};
+  visibility: ${(props) => (props.$isOpen ? "visible" : "hidden")};
+  pointer-events: ${(props) => (props.$isOpen ? "auto" : "none")};
+  transition:
+    clip-path 0.3s ease,
+    visibility 0.3s ease;
   display: flex;
   flex-direction: column;
 `;
@@ -44,6 +49,10 @@ const DrawerHeader = styled.div`
   justify-content: space-between;
   padding: 1.5rem;
   border-bottom: 1px solid ${(props) => props.theme.borderColor};
+
+  @media (max-width: 480px) {
+    padding: 1rem;
+  }
 `;
 
 const DrawerTitle = styled.h2`
@@ -77,6 +86,10 @@ const DrawerContent = styled.div`
   flex: 1;
   padding: 1.5rem;
   overflow-y: auto;
+
+  @media (max-width: 480px) {
+    padding: 1rem;
+  }
 `;
 
 const CartItemsList = styled.div`
@@ -102,6 +115,7 @@ const ItemImage = styled.img`
 
 const ItemDetails = styled.div`
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -111,6 +125,7 @@ const ItemName = styled.h3`
   font-size: 1rem;
   font-weight: 500;
   margin: 0;
+  overflow-wrap: anywhere;
 `;
 
 const ItemPrice = styled.div`
@@ -208,6 +223,10 @@ const EmptyCartText = styled.p`
 const DrawerFooter = styled.div`
   padding: 1.5rem;
   border-top: 1px solid ${(props) => props.theme.borderColor};
+
+  @media (max-width: 480px) {
+    padding: 1rem;
+  }
 `;
 
 const CartSummary = styled.div`
@@ -447,8 +466,8 @@ const CartDrawer = ({ isOpen, onClose }) => {
                   {shipping === 0
                     ? "Gratuite"
                     : typeof shipping === "number"
-                    ? `${formatPrice(shipping)} MAD`
-                    : shipping}
+                      ? `${formatPrice(shipping)} MAD`
+                      : shipping}
                 </SummaryValue>
               </SummaryRow>
               <SummaryRow>

@@ -5,8 +5,7 @@ export const login = createAsyncThunk(
   "auth/login",
   async (credentials, thunkAPI) => {
     try {
-      await api.get("/sanctum/csrf-cookie");
-      const response = await api.post("/api/login", credentials);
+      const response = await api.post("/api/admin/login", credentials);
       return response.data;
     } catch (error) {
       let errorMessage = "Une erreur s'est produite lors de la connexion";
@@ -23,7 +22,7 @@ export const login = createAsyncThunk(
 
       return thunkAPI.rejectWithValue({ message: errorMessage });
     }
-  }
+  },
 );
 
 export const logout = createAsyncThunk("auth/logout", async (_, thunkAPI) => {
@@ -33,7 +32,7 @@ export const logout = createAsyncThunk("auth/logout", async (_, thunkAPI) => {
     return true;
   } catch (error) {
     return thunkAPI.rejectWithValue(
-      error.response?.data?.message || "Échec de la déconnexion"
+      error.response?.data?.message || "Échec de la déconnexion",
     );
   }
 });

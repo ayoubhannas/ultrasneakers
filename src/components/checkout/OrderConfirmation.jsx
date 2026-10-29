@@ -4,7 +4,13 @@ import styled from "styled-components";
 import { Link } from "react-router-dom";
 import { CheckCircle, Package, ArrowRight, Phone } from "lucide-react";
 
-const OrderConfirmation = ({ orderNumber, total, formData }) => {
+const OrderConfirmation = ({
+  orderNumber,
+  subtotal,
+  total,
+  emailStatus,
+  formData,
+}) => {
   const getEstimatedDelivery = () => {
     const today = new Date();
     const deliveryDate = new Date(today);
@@ -39,8 +45,12 @@ const OrderConfirmation = ({ orderNumber, total, formData }) => {
 
       <ConfirmationMessage>
         Merci pour votre commande. Nous avons bien reçu votre demande et nous
-        préparons votre colis. Vous recevrez un email de confirmation avec les
-        détails de votre commande.
+        préparons votre colis.
+        {emailStatus === "sent"
+          ? " Un email de confirmation a été envoyé."
+          : emailStatus === "queued"
+            ? " Votre confirmation email sera envoyée dès que le service email sera disponible."
+            : " Aucun email de confirmation n'a pu être envoyé."}
       </ConfirmationMessage>
 
       <OrderDetailsCard>
@@ -69,8 +79,18 @@ const OrderConfirmation = ({ orderNumber, total, formData }) => {
         </OrderDetailRow>
 
         <OrderDetailRow>
+          <DetailLabel>Sous-total produits</DetailLabel>
+          <DetailValue>{subtotal.toFixed(2)} MAD</DetailValue>
+        </OrderDetailRow>
+
+        <OrderDetailRow>
+          <DetailLabel>Frais de livraison</DetailLabel>
+          <DetailValue>Livraison gratuite (0 MAD)</DetailValue>
+        </OrderDetailRow>
+
+        <OrderDetailRow>
           <DetailLabel>Total à payer</DetailLabel>
-          <DetailValue>{total} MAD</DetailValue>
+          <DetailValue>{total.toFixed(2)} MAD</DetailValue>
         </OrderDetailRow>
       </OrderDetailsCard>
 
@@ -129,7 +149,7 @@ const ConfirmationMessage = styled.p`
 `;
 
 const OrderDetailsCard = styled.div`
-  background-color: #f9f9f9;
+  background-color: ${(props) => props.theme.backgroundAlt};
   border-radius: 8px;
   padding: 1.5rem;
   margin-bottom: 2rem;
@@ -140,7 +160,7 @@ const OrderDetailRow = styled.div`
   display: flex;
   justify-content: space-between;
   padding: 0.75rem 0;
-  border-bottom: 1px solid #eaeaea;
+  border-bottom: 1px solid ${(props) => props.theme.borderColor};
 
   &:last-child {
     border-bottom: none;
@@ -208,7 +228,7 @@ const ContinueShoppingLink = styled(Link)`
   justify-content: center;
   gap: 0.5rem;
   background: none;
-  border: 1px solid #e0e0e0;
+  border: 1px solid ${(props) => props.theme.borderColor};
   border-radius: 4px;
   padding: 1rem;
   font-weight: 600;
@@ -217,7 +237,7 @@ const ContinueShoppingLink = styled(Link)`
   transition: all 0.2s ease;
 
   &:hover {
-    background-color: #f5f5f5;
+    background-color: ${(props) => props.theme.hoverBackground};
   }
 `;
 

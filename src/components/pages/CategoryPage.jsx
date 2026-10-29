@@ -3,8 +3,8 @@
 import { useState, useEffect } from "react";
 import { useLocation, Link } from "react-router-dom";
 import styled, { ThemeProvider } from "styled-components";
-import { ShoppingBag, Heart } from "lucide-react";
-import { useCart } from "../../context/CartContext.jsx";
+import { Heart } from "lucide-react";
+import axios from "axios";
 import { useWishlist } from "../../context/WishlistContext.jsx";
 import Navbar from "../Navbar.jsx";
 import Footer from "../Footer.jsx";
@@ -21,7 +21,6 @@ const CategoryPage = () => {
     return storedTheme || "light";
   });
 
-  const { addToCart } = useCart();
   const { addToWishlist, isInWishlist, removeFromWishlist } = useWishlist();
 
   // Determine category from URL path
@@ -86,116 +85,61 @@ const CategoryPage = () => {
   };
 
   useEffect(() => {
-    // Only fetch products when category is set
-    if (category) {
-      fetchProducts();
-    }
-  }, [category]);
+    if (!category) return;
 
-  const fetchProducts = () => {
-    setLoading(true);
-    try {
-      const storedProducts = localStorage.getItem("ultrasneakers-products");
-      let filteredProducts = [];
+    const fetchProducts = async () => {
+      setLoading(true);
+      try {
+        const response = await axios.get("http://localhost:8000/api/product");
+        const products = Array.isArray(response.data)
+          ? response.data
+          : response.data?.data || [];
+        const filteredProducts =
+          category === "new-arrivals"
+            ? [...products]
+                .sort(
+                  (first, second) =>
+                    new Date(second.created_at || 0) -
+                    new Date(first.created_at || 0),
+                )
+                .slice(0, 8)
+            : products.filter((product) => {
+                const productCategory = (
+                  typeof product.category === "string"
+                    ? product.category
+                    : product.category?.name || ""
+                ).toLowerCase();
+                const categoryAliases = {
+                  classe: ["class", "classe"],
+                  sport: ["sport"],
+                  luxury: ["luxury", "luxe", "luxey"],
+                };
 
-      if (storedProducts) {
-        const allProducts = JSON.parse(storedProducts);
+                return categoryAliases[category]?.includes(productCategory);
+              });
 
-        // Filter products based on category
-        if (category === "new-arrivals") {
-          filteredProducts = allProducts.filter(
-            (p) => p.category === "new-arrivals" || p.isNewArrival === true,
-          );
-        } else if (category === "classe") {
-          filteredProducts = allProducts.filter(
-            (p) => p.category === "classe" || p.category === "Classe",
-          );
-        } else if (category === "sport") {
-          filteredProducts = allProducts.filter(
-            (p) => p.category === "sport" || p.category === "Sport",
-          );
-        } else if (category === "luxury") {
-          filteredProducts = allProducts.filter(
-            (p) =>
-              p.category === "luxury" ||
-              p.category === "Luxey" ||
-              p.category === "Luxury",
-          );
-        } else {
-          filteredProducts = allProducts;
-        }
-      } else {
-        // Default products if none in localStorage
-        filteredProducts = [
-          {
-            id: 1,
-            name: "ADIDAS UltraBoost",
-            price: 1899,
-            category: "sport",
-            images: ["/placeholder.svg?height=300&width=300"],
-          },
-          {
-            id: 2,
-            name: "NIKE Air Max",
-            price: 1599,
-            category: "sport",
-            images: ["/placeholder.svg?height=300&width=300"],
-          },
-          {
-            id: 3,
-            name: "PUMA RS-X",
-            price: 1299,
-            category: "classe",
-            images: ["/placeholder.svg?height=300&width=300"],
-          },
-          {
-            id: 4,
-            name: "NEW BALANCE 574",
-            price: 1499,
-            category: "classe",
-            images: ["/placeholder.svg?height=300&width=300"],
-          },
-          {
-            id: 5,
-            name: "GUCCI Ace",
-            price: 5999,
-            category: "luxury",
-            images: ["/placeholder.svg?height=300&width=300"],
-          },
-          {
-            id: 6,
-            name: "BALENCIAGA Triple S",
-            price: 7099,
-            category: "luxury",
-            images: ["/placeholder.svg?height=300&width=300"],
-          },
-        ];
-
-        // Filter based on category
-        if (category) {
-          filteredProducts = filteredProducts.filter(
-            (p) => p.category.toLowerCase() === category.toLowerCase(),
-          );
-        }
+        setProducts(
+          filteredProducts.map((product) => ({
+            ...product,
+            images: (product.images || []).map((image) =>
+              typeof image === "string"
+                ? image
+                : image?.image_url
+                  ? `http://localhost:8000/storage/${image.image_url}`
+                  : "/placeholder.svg?height=300&width=300",
+            ),
+          })),
+        );
+      } catch (error) {
+        console.error("Error fetching products:", error);
+        setProducts([]);
+      } finally {
+        setLoading(false);
       }
+    };
 
-      setProducts(filteredProducts);
-    } catch (error) {
-      console.error("Error fetching products:", error);
-      setProducts([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleAddToCart = (product) => {
-    addToCart({
-      ...product,
-      selectedSize: "EUR 42", // Default size
-      selectedColor: "Black", // Default color
-      quantity: 1,
-    });
-  };
+    fetchProducts();
+  }, [category]);
 
   const handleWishlist = (product) => {
     if (isInWishlist(product.id)) {
@@ -262,9 +206,8 @@ const CategoryPage = () => {
                     </ProductPrice>
                   </ProductInfo>
 
-                  <AddToCartButton onClick={() => handleAddToCart(product)}>
-                    <ShoppingBag size={16} />
-                    Ajouter au panier
+                  <AddToCartButton to={`/product/${product.id}`}>
+                    Voir les tailles
                   </AddToCartButton>
                 </ProductCard>
               ))}
@@ -318,19 +261,19 @@ const ProductsSection = styled.div`
 
 const ProductsGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: 1fr;
   gap: 2rem;
 
-  @media (max-width: 1200px) {
-    grid-template-columns: repeat(3, 1fr);
+  @media (min-width: 480px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  @media (max-width: 900px) {
-    grid-template-columns: repeat(2, 1fr);
+  @media (min-width: 768px) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  @media (max-width: 600px) {
-    grid-template-columns: 1fr;
+  @media (min-width: 1200px) {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 `;
 
@@ -410,7 +353,7 @@ const ProductPrice = styled.div`
   color: ${(props) => props.theme.primary};
 `;
 
-const AddToCartButton = styled.button`
+const AddToCartButton = styled(Link)`
   display: flex;
   align-items: center;
   justify-content: center;
@@ -423,6 +366,8 @@ const AddToCartButton = styled.button`
   font-weight: 500;
   cursor: pointer;
   transition: background-color 0.3s ease;
+  text-decoration: none;
+  box-sizing: border-box;
 
   &:hover {
     background-color: ${(props) => props.theme.primaryHover};

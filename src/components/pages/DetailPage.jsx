@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import styled, { ThemeProvider } from "styled-components";
-import { Heart, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { Heart, ChevronLeft, ChevronRight } from "lucide-react";
 import axios from "axios";
 import { useCart } from "../../context/CartContext";
 import { useWishlist } from "../../context/WishlistContext.jsx";
@@ -16,12 +16,13 @@ import SizeGuideModalComponent from "../SizeGuideModal";
 
 const DetailPage = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedSize, setSelectedSize] = useState(null);
+  const [sizeError, setSizeError] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [showSizeDropdown, setShowSizeDropdown] = useState(false);
-  const [deliveryTime, setDeliveryTime] = useState({ min: 24, max: 72 });
+  const [deliveryTime] = useState({ min: 24, max: 72 });
   const [theme, setTheme] = useState(() => {
     const storedTheme = localStorage.getItem("ultrasneakers-theme");
     return storedTheme || "light";
@@ -43,10 +44,14 @@ const DetailPage = () => {
 
   const { addToCart } = useCart();
   const { addToWishlist, isInWishlist, removeFromWishlist } = useWishlist();
+  const hasAvailableSizes =
+    product?.sizes?.some((size) => size.available) || false;
 
   useEffect(() => {
     const fetchProduct = async () => {
       setLoading(true);
+      setSelectedSize(null);
+      setSizeError(false);
       try {
         console.log(`Fetching product with id: ${id}`);
         const response = await axios.get(
@@ -58,52 +63,59 @@ const DetailPage = () => {
           throw new Error("Produit non trouvé");
         }
 
-        fetchedProduct.sizes =
-          fetchedProduct.sizes?.map((size) => `EUR ${size.size}`) || [];
+        fetchedProduct.sizes = (fetchedProduct.sizes || []).map((size) => ({
+          id: size.id,
+          label: `EUR ${size.size}`,
+          available:
+            size.pivot?.is_available !== false &&
+            Number(size.pivot?.is_available ?? 1) !== 0,
+        }));
 
         fetchedProduct.images = fetchedProduct.images?.map(
           (img) => `http://localhost:8000/storage/${img.image_url}`,
         ) || ["/placeholder.svg?height=500&width=500"];
 
         setProduct(fetchedProduct);
-        if (fetchedProduct.sizes.length > 0) {
-          setSelectedSize(fetchedProduct.sizes[0]);
-        }
       } catch (error) {
         console.error("Erreur lors du chargement du produit:", error);
-        setProduct({
-          id: parseInt(id, 10),
-          name: `Produit #${id} (Non trouvé)`,
-          price: 0,
-          description: "Désolé, ce produit n'a pas été trouvé.",
-          sizes: ["EUR 40", "EUR 41", "EUR 42"],
-          images: ["/placeholder.svg?height=500&width=500"],
-          category: "Inconnu",
-        });
+        setProduct(null);
+        if (error.response?.status === 404) {
+          navigate("/shop", {
+            replace: true,
+            state: { message: "Ce produit n’est plus disponible" },
+          });
+        }
       } finally {
         setLoading(false);
       }
     };
 
     fetchProduct();
-  }, [id]);
+  }, [id, navigate]);
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     if (!selectedSize) {
-      notifyCartToast({
-        title: "Veuillez sélectionner une taille",
-        productName: product?.name || "Produit",
-        showActions: false,
-      });
+      setSizeError(true);
       return;
     }
 
-    addToCart({
+    const added = await addToCart({
       ...product,
       selectedSize,
       selectedColor: product.category?.name || "Default",
       quantity: 1,
     });
+
+    if (!added) {
+      setSelectedSize(null);
+      setSizeError(true);
+      notifyCartToast({
+        title: "Cette pointure n’est plus disponible.",
+        productName: product.name,
+        showActions: false,
+      });
+      return;
+    }
 
     notifyCartAdded(product);
   };
@@ -203,37 +215,51 @@ const DetailPage = () => {
                 </SizeGuideLink>
               </SizeHeader>
 
-              <SizeDropdown
-                onClick={() => setShowSizeDropdown(!showSizeDropdown)}
-              >
+              <SizeDropdown $hasError={sizeError}>
                 <SelectedSize>
-                  {selectedSize || "Sélectionner une taille"}
+                  {selectedSize || "Choisir une taille disponible"}
                 </SelectedSize>
-                <ChevronDown size={20} />
-
-                {showSizeDropdown && (
-                  <SizeOptions>
-                    {product.sizes &&
-                      product.sizes.map((size) => (
-                        <SizeOption
-                          key={size}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedSize(size);
-                            setShowSizeDropdown(false);
-                          }}
-                          $selected={size === selectedSize}
-                        >
-                          {size}
-                        </SizeOption>
-                      ))}
-                  </SizeOptions>
-                )}
               </SizeDropdown>
+              <SizeOptions aria-label="Pointures du produit">
+                {product.sizes.map((size) => (
+                  <SizeOption
+                    key={size.id}
+                    type="button"
+                    disabled={!size.available}
+                    onClick={() => {
+                      setSelectedSize(size.label);
+                      setSizeError(false);
+                    }}
+                    $selected={size.label === selectedSize}
+                    $unavailable={!size.available}
+                    aria-label={
+                      size.available
+                        ? size.label
+                        : `${size.label}, Indisponible`
+                    }
+                  >
+                    <span>{size.label}</span>
+                    {!size.available && (
+                      <UnavailableSizeLabel>Indisponible</UnavailableSizeLabel>
+                    )}
+                  </SizeOption>
+                ))}
+              </SizeOptions>
+              {!hasAvailableSizes && (
+                <StockOutMessage role="status">
+                  Rupture de stock
+                </StockOutMessage>
+              )}
+              {sizeError && (
+                <SizeError>Veuillez sélectionner une taille.</SizeError>
+              )}
             </SizeSection>
 
             <ActionButtons>
-              <AddToCartButton onClick={handleAddToCart}>
+              <AddToCartButton
+                onClick={handleAddToCart}
+                disabled={!selectedSize || !hasAvailableSizes}
+              >
                 Ajouter au panier
               </AddToCartButton>
 
@@ -273,6 +299,7 @@ const DetailPage = () => {
 const PageContainer = styled.div`
   margin: 20px auto;
   max-width: 1300px;
+  width: 100%;
   padding-bottom: 4rem;
   background-color: ${(props) => props.theme.background};
   color: ${(props) => props.theme.text};
@@ -280,12 +307,17 @@ const PageContainer = styled.div`
 
 const MainContent = styled.div`
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 2rem;
   padding: 2rem;
 
-  @media (max-width: 1024px) {
+  @media (max-width: 900px) {
     grid-template-columns: 1fr;
+  }
+
+  @media (max-width: 480px) {
+    gap: 1.5rem;
+    padding: 1rem;
   }
 `;
 
@@ -297,14 +329,16 @@ const ProductImagesSection = styled.div`
 const MainImageContainer = styled.div`
   position: relative;
   width: 100%;
-  height: 600px;
+  height: min(600px, 55vw);
+  min-height: 280px;
   display: flex;
   align-items: center;
   justify-content: center;
   background-color: ${(props) => props.theme.backgroundAlt};
 
   @media (max-width: 768px) {
-    height: 400px;
+    height: min(420px, 75vw);
+    min-height: 280px;
   }
 `;
 
@@ -379,6 +413,7 @@ const ProductDetailsSection = styled.div`
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  min-width: 0;
 `;
 
 const BrandName = styled.div`
@@ -392,6 +427,11 @@ const ProductName = styled.h1`
   font-weight: 500;
   margin: 0;
   color: ${(props) => props.theme.text};
+  overflow-wrap: anywhere;
+
+  @media (max-width: 480px) {
+    font-size: 1.6rem;
+  }
 `;
 
 const ProductCategory = styled.div`
@@ -434,18 +474,15 @@ const SizeGuideLink = styled.a`
 `;
 
 const SizeDropdown = styled.div`
-  position: relative;
-  border: 1px solid ${(props) => props.theme.borderColor};
+  border: 1px solid
+    ${(props) => (props.$hasError ? "#dc2626" : props.theme.borderColor)};
   padding: 1rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  cursor: pointer;
   background-color: ${(props) => props.theme.cardBackground};
   color: ${(props) => props.theme.text};
 
   &:hover {
-    border-color: ${(props) => props.theme.primary};
+    border-color: ${(props) =>
+      props.$hasError ? "#dc2626" : props.theme.primary};
   }
 `;
 
@@ -453,35 +490,71 @@ const SelectedSize = styled.div`
   font-weight: 500;
 `;
 
-const SizeOptions = styled.div`
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  background: ${(props) => props.theme.cardBackground};
-  border: 1px solid ${(props) => props.theme.borderColor};
-  border-top: none;
-  max-height: 300px;
-  overflow-y: auto;
-  z-index: 10;
+const SizeError = styled.div`
+  color: #dc2626;
+  font-size: 0.8rem;
 `;
 
-const SizeOption = styled.div`
-  padding: 1rem;
-  cursor: pointer;
+const SizeOptions = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(7rem, 100%), 1fr));
+  gap: 0.5rem;
+`;
+
+const SizeOption = styled.button`
+  min-width: 0;
+  min-height: 2.75rem;
+  padding: 0.55rem 0.65rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  border: 1px solid
+    ${(props) =>
+      props.$unavailable
+        ? "#dc2626"
+        : props.$selected
+          ? props.theme.primary
+          : props.theme.borderColor};
   background-color: ${(props) =>
     props.$selected ? props.theme.hoverBackground : props.theme.cardBackground};
-  color: ${(props) => props.theme.text};
+  color: ${(props) => (props.$unavailable ? "#dc2626" : props.theme.text)};
+  cursor: ${(props) => (props.disabled ? "not-allowed" : "pointer")};
+  opacity: ${(props) => (props.disabled ? 0.78 : 1)};
 
-  &:hover {
+  &:hover:not(:disabled) {
     background-color: ${(props) => props.theme.hoverBackground};
   }
+
+  ${(props) =>
+    props.$unavailable &&
+    `
+      span:first-child { text-decoration: line-through; }
+    `}
+`;
+
+const UnavailableSizeLabel = styled.span`
+  font-size: 0.65rem;
+  text-align: right;
+
+  @media (max-width: 400px) {
+    display: none;
+  }
+`;
+
+const StockOutMessage = styled.div`
+  color: #dc2626;
+  font-weight: 600;
 `;
 
 const ActionButtons = styled.div`
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 1rem;
+
+  @media (max-width: 600px) {
+    grid-template-columns: 1fr;
+  }
 `;
 
 const AddToCartButton = styled.button`
@@ -494,7 +567,12 @@ const AddToCartButton = styled.button`
   cursor: pointer;
   transition: background-color 0.2s;
 
-  &:hover {
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+
+  &:hover:not(:disabled) {
     background-color: ${(props) => props.theme.primaryHover};
   }
 `;

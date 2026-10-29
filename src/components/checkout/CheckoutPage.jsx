@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useCart } from "../../context/CartContext";
+import api from "../../Api/authApi";
 import styled, { ThemeProvider } from "styled-components";
-import { lightTheme } from "../../styles/Theme";
+import { lightTheme, darkTheme } from "../../styles/Theme";
 import { GlobalStyles } from "../../styles/GlobalStyles";
 import {
   ChevronLeft,
@@ -18,9 +20,32 @@ import PaymentMethod from "./PaymentMethod";
 import OrderConfirmation from "./OrderConfirmation";
 
 const CheckoutPage = () => {
+  const { cart, clearCart, subtotal } = useCart();
+  const [theme, setTheme] = useState(() =>
+    localStorage.getItem("ultrasneakers-theme") === "dark" ? "dark" : "light",
+  );
   const [step, setStep] = useState(1);
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [orderNumber, setOrderNumber] = useState("");
+  const [orderAmounts, setOrderAmounts] = useState({
+    subtotal: 0,
+    deliveryFee: 0,
+    total: 0,
+  });
+  const [emailStatus, setEmailStatus] = useState("not_configured");
+  const [submitError, setSubmitError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    const handleThemeChange = (event) => {
+      if (event.detail === "dark" || event.detail === "light") {
+        setTheme(event.detail);
+      }
+    };
+
+    window.addEventListener("theme:change", handleThemeChange);
+    return () => window.removeEventListener("theme:change", handleThemeChange);
+  }, []);
 
   const [formData, setFormData] = useState({
     firstName: "",
@@ -37,26 +62,12 @@ const CheckoutPage = () => {
     paymentMethod: "cashOnDelivery",
   });
 
-  const cartItems = [
-    {
-      id: 1,
-      name: "UltraBoost Pro",
-      price: 1299,
-      quantity: 1,
-      image: "/placeholder.svg?height=80&width=80",
-      color: "Black",
-      size: "42",
-    },
-    {
-      id: 2,
-      name: "AirFlex Runner",
-      price: 999,
-      quantity: 1,
-      image: "/placeholder.svg?height=80&width=80",
-      color: "Red",
-      size: "43",
-    },
-  ];
+  const cartItems = cart.map((item) => ({
+    ...item,
+    image:
+      item.image || item.images?.[0] || "/placeholder.svg?height=80&width=80",
+    size: item.selectedSize,
+  }));
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -90,35 +101,67 @@ const CheckoutPage = () => {
     setStep((prev) => prev - 1);
   };
 
-  const placeOrder = () => {
-    const newOrderNumber = `MA${Math.floor(Math.random() * 1000000)
-      .toString()
-      .padStart(6, "0")}`;
-    setOrderNumber(newOrderNumber);
-    setOrderPlaced(true);
-    window.scrollTo(0, 0);
+  const placeOrder = async () => {
+    if (cartItems.length === 0 || isSubmitting) return;
+
+    setIsSubmitting(true);
+    setSubmitError("");
+
+    try {
+      const response = await api.post("/api/orders", {
+        customer: {
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email || null,
+          phone: formData.phone,
+          address: formData.address,
+          city: formData.city,
+          postalCode: formData.postalCode,
+          country: "Maroc",
+        },
+        deliveryOption: formData.deliveryOption,
+        paymentMethod: formData.paymentMethod,
+        items: cartItems.map((item) => ({
+          id: item.id,
+          selectedSize: item.selectedSize,
+          quantity: item.quantity,
+        })),
+      });
+
+      setOrderNumber(response.data.data.order_number);
+      setOrderAmounts({
+        subtotal: Number(response.data.data.subtotal),
+        deliveryFee: Number(response.data.data.delivery_fee),
+        total: Number(response.data.data.total),
+      });
+      setEmailStatus(response.data.email?.customer || "not_configured");
+      clearCart();
+      setOrderPlaced(true);
+      window.scrollTo(0, 0);
+    } catch (error) {
+      setSubmitError(
+        error.response?.data?.message ||
+          "Impossible de créer la commande. Veuillez réessayer.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const subtotal = cartItems.reduce(
-    (sum, item) => sum + item.price * item.quantity,
-    0
-  );
-  const deliveryFee =
-    formData.deliveryOption === "express"
-      ? 50
-      : formData.deliveryOption === "sameDay"
-      ? 80
-      : 30;
+  const deliveryFee = 0;
   const total = subtotal + deliveryFee;
 
   if (orderPlaced) {
     return (
-      <ThemeProvider theme={lightTheme}>
+      <ThemeProvider theme={theme === "dark" ? darkTheme : lightTheme}>
         <GlobalStyles />
         <PageContainer>
           <OrderConfirmation
             orderNumber={orderNumber}
-            total={total}
+            subtotal={orderAmounts.subtotal}
+            deliveryFee={orderAmounts.deliveryFee}
+            total={orderAmounts.total}
+            emailStatus={emailStatus}
             formData={formData}
           />
         </PageContainer>
@@ -127,7 +170,7 @@ const CheckoutPage = () => {
   }
 
   return (
-    <ThemeProvider theme={lightTheme}>
+    <ThemeProvider theme={theme === "dark" ? darkTheme : lightTheme}>
       <GlobalStyles />
       <PageContainer>
         <CheckoutContainer>
@@ -205,6 +248,8 @@ const CheckoutPage = () => {
                   deliveryFee={deliveryFee}
                   total={total}
                   placeOrder={placeOrder}
+                  isSubmitting={isSubmitting}
+                  submitError={submitError}
                 />
               )}
             </MainContent>
@@ -226,10 +271,10 @@ const CheckoutPage = () => {
 const OrderReview = ({
   formData,
   cartItems,
-  subtotal,
-  deliveryFee,
   total,
   placeOrder,
+  isSubmitting,
+  submitError,
 }) => {
   return (
     <Section>
@@ -258,13 +303,16 @@ const OrderReview = ({
         <ReviewTitle>Mode de livraison</ReviewTitle>
         <ReviewContent>
           {formData.deliveryOption === "standard" && (
-            <p>Livraison standard (3-5 jours ouvrables) - 30 MAD</p>
+            <p>Livraison standard (3-5 jours ouvrables) - Livraison gratuite</p>
           )}
           {formData.deliveryOption === "express" && (
-            <p>Livraison express (1-2 jours ouvrables) - 50 MAD</p>
+            <p>Livraison express (1-2 jours ouvrables) - Livraison gratuite</p>
           )}
           {formData.deliveryOption === "sameDay" && (
-            <p>Livraison le jour même (Casablanca uniquement) - 80 MAD</p>
+            <p>
+              Livraison le jour même (Casablanca uniquement) - Livraison
+              gratuite
+            </p>
           )}
         </ReviewContent>
       </ReviewSection>
@@ -306,8 +354,10 @@ const OrderReview = ({
         que vous devrez payer le montant total en espèces à la livraison.
       </DisclaimerText>
 
-      <PlaceOrderButton onClick={placeOrder}>
-        Confirmer la commande
+      {submitError && <ErrorText>{submitError}</ErrorText>}
+
+      <PlaceOrderButton onClick={placeOrder} disabled={isSubmitting}>
+        {isSubmitting ? "Création de la commande..." : "Confirmer la commande"}
       </PlaceOrderButton>
     </Section>
   );
@@ -315,7 +365,7 @@ const OrderReview = ({
 
 const PageContainer = styled.div`
   min-height: 100vh;
-  background-color: #f5f5f5;
+  background-color: ${(props) => props.theme.backgroundAlt};
   padding: 2rem 1rem;
 
   @media (max-width: 768px) {
@@ -326,7 +376,7 @@ const PageContainer = styled.div`
 const CheckoutContainer = styled.div`
   max-width: 1200px;
   margin: 0 auto;
-  background-color: white;
+  background-color: ${(props) => props.theme.cardBackground};
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
   overflow: hidden;
@@ -334,7 +384,7 @@ const CheckoutContainer = styled.div`
 
 const CheckoutHeader = styled.header`
   padding: 1.5rem;
-  border-bottom: 1px solid #eaeaea;
+  border-bottom: 1px solid ${(props) => props.theme.borderColor};
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -365,8 +415,8 @@ const Step = styled.div`
     props.$active
       ? props.theme.primary
       : props.$completed
-      ? props.theme.primary
-      : props.theme.textSecondary};
+        ? props.theme.primary
+        : props.theme.textSecondary};
   transition: color 0.3s ease;
 `;
 
@@ -401,16 +451,18 @@ const StepConnector = styled.div`
 
 const CheckoutContent = styled.div`
   display: grid;
-  grid-template-columns: 1fr 350px;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
   gap: 2rem;
+  min-width: 0;
 
-  @media (max-width: 1024px) {
-    grid-template-columns: 1fr;
+  @media (max-width: 900px) {
+    grid-template-columns: minmax(0, 1fr);
   }
 `;
 
 const MainContent = styled.main`
   padding: 2rem;
+  min-width: 0;
 
   @media (max-width: 768px) {
     padding: 1rem;
@@ -447,7 +499,7 @@ const SectionTitle = styled.h2`
 const ReviewSection = styled.div`
   margin-bottom: 1.5rem;
   padding-bottom: 1.5rem;
-  border-bottom: 1px solid #eaeaea;
+  border-bottom: 1px solid ${(props) => props.theme.borderColor};
 
   &:last-of-type {
     border-bottom: none;
@@ -481,18 +533,20 @@ const ReviewItems = styled.div`
 const ReviewItem = styled.div`
   display: flex;
   gap: 1rem;
+  min-width: 0;
 `;
 
 const ReviewItemImage = styled.img`
   width: 60px;
   height: 60px;
   object-fit: contain;
-  background-color: #f5f5f5;
+  background-color: ${(props) => props.theme.backgroundAlt};
   border-radius: 4px;
 `;
 
 const ReviewItemDetails = styled.div`
   flex: 1;
+  min-width: 0;
 `;
 
 const ReviewItemName = styled.div`
@@ -535,6 +589,11 @@ const PlaceOrderButton = styled.button`
   &:hover {
     background-color: ${(props) => props.theme.primaryHover};
   }
+`;
+
+const ErrorText = styled.p`
+  color: #dc2626;
+  margin: 1rem 0;
 `;
 
 export default CheckoutPage;

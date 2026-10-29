@@ -11,6 +11,7 @@ import {
   Truck,
   XCircle,
 } from "lucide-react";
+import api from "../../Api/authApi";
 
 const Card = styled.div`
   background-color: ${(props) => props.theme.cardBackground};
@@ -67,7 +68,9 @@ const StatsCard = styled(Card)`
   border: 1px solid ${(props) => props.theme.borderColor};
   border-radius: 0.5rem;
   box-shadow: ${(props) => props.theme.shadow};
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 
   &:hover {
     transform: translateY(-2px);
@@ -213,10 +216,47 @@ const NotificationTime = styled.p`
   margin: 0;
 `;
 
+const DashboardMessage = styled.div`
+  padding: 2rem;
+  text-align: center;
+  color: ${(props) => props.theme.textSecondary};
+  background-color: ${(props) => props.theme.cardBackground};
+  border: 1px solid ${(props) => props.theme.borderColor};
+  border-radius: 0.5rem;
+`;
+
+const DashboardError = styled(DashboardMessage)`
+  color: #dc2626;
+`;
+
+const DashboardSkeleton = styled.div`
+  height: 7rem;
+  border-radius: 0.5rem;
+  background: linear-gradient(
+    90deg,
+    ${(props) => props.theme.backgroundAlt} 25%,
+    ${(props) => props.theme.cardBackground} 50%,
+    ${(props) => props.theme.backgroundAlt} 75%
+  );
+  background-size: 200% 100%;
+  animation: dashboard-loading 1.4s infinite;
+
+  @keyframes dashboard-loading {
+    from {
+      background-position: 200% 0;
+    }
+    to {
+      background-position: -200% 0;
+    }
+  }
+`;
+
 const Dashboard = () => {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [stats, setStats] = useState({
     totalOrders: 0,
-    newOrders: 0,
+    newOrdersToday: 0,
     totalProducts: 0,
     ordersByStatus: {
       new: 0,
@@ -225,37 +265,66 @@ const Dashboard = () => {
       cancelled: 0,
     },
     notifications: [],
+    availability: {},
   });
 
+  const fetchDashboard = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await api.get("/api/admin/dashboard");
+      setStats(response.data.data);
+    } catch (requestError) {
+      setError(
+        requestError.response?.data?.message ||
+          "Impossible de charger les données du tableau de bord.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    setTimeout(() => {
-      setStats({
-        totalOrders: 1248,
-        newOrders: 24,
-        totalProducts: 156,
-        ordersByStatus: {
-          new: 42,
-          confirmed: 78,
-          shipped: 103,
-          cancelled: 15,
-        },
-        notifications: [
-          {
-            id: 1,
-            title: "New order #3245 needs confirmation",
-            time: "10 minutes ago",
-          },
-          { id: 2, title: "Order #3242 is ready to ship", time: "1 hour ago" },
-          { id: 3, title: "Low stock alert: Air Max 270", time: "3 hours ago" },
-          {
-            id: 4,
-            title: "New customer feedback received",
-            time: "5 hours ago",
-          },
-        ],
-      });
-    }, 1000);
+    fetchDashboard();
+    const interval = window.setInterval(fetchDashboard, 30000);
+    return () => window.clearInterval(interval);
   }, []);
+
+  const orderStatuses = Object.values(stats.ordersByStatus).filter(
+    (value) => typeof value === "number",
+  );
+  const totalKnownOrders = orderStatuses.reduce(
+    (total, value) => total + value,
+    0,
+  );
+  const progressFor = (value) =>
+    totalKnownOrders > 0 && typeof value === "number"
+      ? value / totalKnownOrders
+      : 0;
+  const displayValue = (value) =>
+    value === null || value === undefined ? "Donnée indisponible" : value;
+
+  if (loading) {
+    return (
+      <DashboardGrid>
+        <DashboardSkeleton />
+        <DashboardSkeleton />
+        <DashboardSkeleton />
+        <DashboardSkeleton />
+      </DashboardGrid>
+    );
+  }
+
+  if (error) {
+    return (
+      <DashboardError>
+        {error}
+        <button type="button" onClick={fetchDashboard}>
+          Réessayer
+        </button>
+      </DashboardError>
+    );
+  }
 
   return (
     <div style={{ width: "100%" }}>
@@ -267,10 +336,9 @@ const Dashboard = () => {
               <Package size={20} />
             </IconWrapper>
           </CardHeader>
-          <CardValue>{stats.totalOrders}</CardValue>
-          <CardFooter $color="#10b981">
-            <TrendingUp size={14} style={{ marginRight: "4px" }} />
-            <span>+12.5% par rapport au mois dernier</span>
+          <CardValue>{displayValue(stats.totalOrders)}</CardValue>
+          <CardFooter>
+            <span>Données réelles indisponibles</span>
           </CardFooter>
         </StatsCard>
 
@@ -281,7 +349,7 @@ const Dashboard = () => {
               <AlertCircle size={20} />
             </IconWrapper>
           </CardHeader>
-          <CardValue>{stats.newOrders}</CardValue>
+          <CardValue>{displayValue(stats.newOrdersToday)}</CardValue>
           <CardFooter>
             <span>Nécessite attention</span>
           </CardFooter>
@@ -307,10 +375,9 @@ const Dashboard = () => {
               <TrendingUp size={20} />
             </IconWrapper>
           </CardHeader>
-          <CardValue>24.8%</CardValue>
-          <CardFooter $color="#10b981">
-            <TrendingUp size={14} style={{ marginRight: "4px" }} />
-            <span>+3.2% par rapport à la semaine dernière</span>
+          <CardValue>{displayValue(stats.conversionRate)}</CardValue>
+          <CardFooter>
+            <span>Calcul impossible avec les données disponibles</span>
           </CardFooter>
         </StatsCard>
       </DashboardGrid>
@@ -325,9 +392,9 @@ const Dashboard = () => {
               </StatusIcon>
               <StatusTitle>Nouvelles Commandes</StatusTitle>
             </StatusHeader>
-            <StatusValue>{stats.ordersByStatus.new}</StatusValue>
+            <StatusValue>{displayValue(stats.ordersByStatus.new)}</StatusValue>
             <Progress
-              value={stats.ordersByStatus.new / 200}
+              value={progressFor(stats.ordersByStatus.new)}
               className="h-2 mt-2"
             />
           </StatusCard>
@@ -339,9 +406,11 @@ const Dashboard = () => {
               </StatusIcon>
               <StatusTitle>Commandes Confirmées</StatusTitle>
             </StatusHeader>
-            <StatusValue>{stats.ordersByStatus.confirmed}</StatusValue>
+            <StatusValue>
+              {displayValue(stats.ordersByStatus.confirmed)}
+            </StatusValue>
             <Progress
-              value={stats.ordersByStatus.confirmed / 200}
+              value={progressFor(stats.ordersByStatus.confirmed)}
               className="h-2 mt-2"
             />
           </StatusCard>
@@ -353,9 +422,11 @@ const Dashboard = () => {
               </StatusIcon>
               <StatusTitle>Commandes Expédiées</StatusTitle>
             </StatusHeader>
-            <StatusValue>{stats.ordersByStatus.shipped}</StatusValue>
+            <StatusValue>
+              {displayValue(stats.ordersByStatus.shipped)}
+            </StatusValue>
             <Progress
-              value={stats.ordersByStatus.shipped / 200}
+              value={progressFor(stats.ordersByStatus.shipped)}
               className="h-2 mt-2"
             />
           </StatusCard>
@@ -367,9 +438,11 @@ const Dashboard = () => {
               </StatusIcon>
               <StatusTitle>Commandes Annulées</StatusTitle>
             </StatusHeader>
-            <StatusValue>{stats.ordersByStatus.cancelled}</StatusValue>
+            <StatusValue>
+              {displayValue(stats.ordersByStatus.cancelled)}
+            </StatusValue>
             <Progress
-              value={stats.ordersByStatus.cancelled / 200}
+              value={progressFor(stats.ordersByStatus.cancelled)}
               className="h-2 mt-2"
             />
           </StatusCard>
@@ -379,21 +452,27 @@ const Dashboard = () => {
       <NotificationsSection>
         <SectionTitle>Notifications en Attente</SectionTitle>
         <NotificationsList>
-          {stats.notifications.map((notification) => (
-            <NotificationItem key={notification.id}>
-              <StatusIcon>
-                <AlertCircle size={16} />
-              </StatusIcon>
-              <NotificationContent>
-                <NotificationTitle>
-                  {translateNotification(notification.title)}
-                </NotificationTitle>
-                <NotificationTime>
-                  {translateTimeAgo(notification.time)}
-                </NotificationTime>
-              </NotificationContent>
-            </NotificationItem>
-          ))}
+          {stats.notifications.length > 0 ? (
+            stats.notifications.map((notification) => (
+              <NotificationItem key={notification.id}>
+                <StatusIcon>
+                  <AlertCircle size={16} />
+                </StatusIcon>
+                <NotificationContent>
+                  <NotificationTitle>
+                    {translateNotification(notification.title)}
+                  </NotificationTitle>
+                  <NotificationTime>
+                    {translateTimeAgo(notification.time)}
+                  </NotificationTime>
+                </NotificationContent>
+              </NotificationItem>
+            ))
+          ) : (
+            <DashboardMessage>
+              Aucune donnée de notification disponible.
+            </DashboardMessage>
+          )}
         </NotificationsList>
       </NotificationsSection>
     </div>

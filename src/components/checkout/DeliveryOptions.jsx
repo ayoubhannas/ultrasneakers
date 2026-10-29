@@ -24,7 +24,7 @@ const DeliveryOptions = ({
             <OptionTitle>Livraison standard</OptionTitle>
             <OptionDescription>3-5 jours ouvrables</OptionDescription>
           </OptionContent>
-          <OptionPrice>30 MAD</OptionPrice>
+          <OptionPrice>Livraison gratuite</OptionPrice>
           <RadioButton>
             <input
               type="radio"
@@ -48,7 +48,7 @@ const DeliveryOptions = ({
             <OptionTitle>Livraison express</OptionTitle>
             <OptionDescription>1-2 jours ouvrables</OptionDescription>
           </OptionContent>
-          <OptionPrice>50 MAD</OptionPrice>
+          <OptionPrice>Livraison gratuite</OptionPrice>
           <RadioButton>
             <input
               type="radio"
@@ -74,7 +74,7 @@ const DeliveryOptions = ({
               Casablanca uniquement (commandes avant 12h)
             </OptionDescription>
           </OptionContent>
-          <OptionPrice>80 MAD</OptionPrice>
+          <OptionPrice>Livraison gratuite</OptionPrice>
           <RadioButton>
             <input
               type="radio"
@@ -102,8 +102,7 @@ const DeliveryOptions = ({
             localisation.
           </InfoItem>
           <InfoItem>
-            Pour les zones rurales ou éloignées, des frais supplémentaires
-            peuvent s'appliquer.
+            La livraison est gratuite pour toutes les commandes.
           </InfoItem>
         </InfoList>
       </DeliveryInfo>
@@ -135,12 +134,13 @@ const DeliveryOption = styled.div`
   align-items: center;
   padding: 1.25rem;
   border: 1px solid
-    ${(props) => (props.$selected ? props.theme.primary : "#e0e0e0")};
+    ${(props) =>
+      props.$selected ? props.theme.primary : props.theme.borderColor};
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
   background-color: ${(props) =>
-    props.$selected ? `${props.theme.primary}10` : "white"};
+    props.$selected ? `${props.theme.primary}10` : props.theme.cardBackground};
 
   &:hover {
     border-color: ${(props) => props.theme.primary};
@@ -154,7 +154,7 @@ const OptionIcon = styled.div`
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background-color: #f5f5f5;
+  background-color: ${(props) => props.theme.backgroundAlt};
   margin-right: 1rem;
   color: ${(props) => props.theme.primary};
 `;

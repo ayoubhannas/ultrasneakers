@@ -13,7 +13,7 @@ import {
   XCircle,
   ShoppingBag,
 } from "lucide-react";
-import axios from "axios";
+import api from "../../Api/authApi";
 
 const Button = styled.button`
   display: inline-flex;
@@ -39,7 +39,7 @@ const Button = styled.button`
       }
     `
       : props.variant === "ghost"
-      ? `
+        ? `
       background-color: transparent;
       border: none;
       color: ${props.theme.text};
@@ -48,8 +48,8 @@ const Button = styled.button`
         background-color: ${props.theme.hoverBackground};
       }
     `
-      : props.variant === "destructive"
-      ? `
+        : props.variant === "destructive"
+          ? `
       background-color: #ef4444;
       border: none;
       color: white;
@@ -58,7 +58,7 @@ const Button = styled.button`
         background-color: #dc2626;
       }
     `
-      : `
+          : `
       background-color: ${props.theme.primary};
       border: none;
       color: white;
@@ -88,7 +88,14 @@ const Input = styled.input`
 
 const Table = styled.table`
   width: 100%;
+  min-width: 720px;
   border-collapse: collapse;
+`;
+
+const TableViewport = styled.div`
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 `;
 
 const TableHeader = styled.thead`
@@ -328,14 +335,10 @@ const ProductList = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const productsResponse = await axios.get(
-          "http://localhost:8000/api/admin/products"
-        );
+        const productsResponse = await api.get("/api/admin/products");
         setProducts(productsResponse.data.data);
 
-        const categoriesResponse = await axios.get(
-          "http://localhost:8000/api/categories"
-        );
+        const categoriesResponse = await api.get("/api/categories");
         setCategories(categoriesResponse.data);
         setLoading(false);
       } catch (error) {
@@ -363,9 +366,7 @@ const ProductList = () => {
 
   const handleDeleteProduct = async () => {
     try {
-      await axios.delete(
-        `http://localhost:8000/api/admin/products/${productToDelete.id}`
-      );
+      await api.delete(`/api/admin/products/${productToDelete.id}`);
       setProducts(products.filter((p) => p.id !== productToDelete.id));
       setDeleteDialogOpen(false);
       setProductToDelete(null);
@@ -373,7 +374,7 @@ const ProductList = () => {
       console.error("Erreur lors de la suppression:", error);
       setError(
         error.response?.data?.message ||
-          "Erreur lors de la suppression du produit. Veuillez réessayer."
+          "Erreur lors de la suppression du produit. Veuillez réessayer.",
       );
     }
   };
@@ -462,100 +463,107 @@ const ProductList = () => {
         {loading ? (
           <div className="p-8 text-center">Chargement des produits...</div>
         ) : filteredProducts.length > 0 ? (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Produit</TableHead>
-                <TableHead>Prix</TableHead>
-                <TableHead>Catégorie</TableHead>
-                <TableHead>Tailles</TableHead>
-                <TableHead>Statut</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredProducts.map((product) => (
-                <TableRow key={product.id}>
-                  <TableCell>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "12px",
-                      }}
-                    >
-                      <ProductImage
-                        src={
-                          product.images[0]?.image_url
-                            ? `http://localhost:8000/storage/${product.images[0].image_url}`
-                            : "/placeholder.svg?height=100&width=100"
-                        }
-                        alt={product.name}
-                      />
-                      <div>
-                        <div style={{ fontWeight: "500" }}>{product.name}</div>
-                        <div
-                          style={{
-                            fontSize: "0.75rem",
-                            color: "#666",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                            maxWidth: "200px",
-                          }}
-                        >
-                          {product.description}
+          <TableViewport>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Produit</TableHead>
+                  <TableHead>Prix</TableHead>
+                  <TableHead>Catégorie</TableHead>
+                  <TableHead>Tailles</TableHead>
+                  <TableHead>Statut</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredProducts.map((product) => (
+                  <TableRow key={product.id}>
+                    <TableCell>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "12px",
+                        }}
+                      >
+                        <ProductImage
+                          src={
+                            product.images[0]?.image_url
+                              ? `http://localhost:8000/storage/${product.images[0].image_url}`
+                              : "/placeholder.svg?height=100&width=100"
+                          }
+                          alt={product.name}
+                        />
+                        <div>
+                          <div style={{ fontWeight: "500" }}>
+                            {product.name}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: "0.75rem",
+                              color: "#666",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                              maxWidth: "200px",
+                            }}
+                          >
+                            {product.description}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>{product.price} MAD</TableCell>
-                  <TableCell>
-                    {product.category?.name || "Sans catégorie"}
-                  </TableCell>
-                  <TableCell>
-                    {product.sizes.map((size) => size.size).join(", ")}
-                  </TableCell>
-                  <TableCell>
-                    <StatusBadge $available={product.status === "disponible"}>
-                      {product.status === "disponible" ? (
-                        <CheckCircle size={12} style={{ marginRight: "4px" }} />
-                      ) : (
-                        <XCircle size={12} style={{ marginRight: "4px" }} />
-                      )}
-                      {product.status === "disponible"
-                        ? "Disponible"
-                        : "Non Disponible"}
-                    </StatusBadge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "flex-end",
-                        gap: "8px",
-                      }}
-                    >
-                      <ActionButton
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleEditProduct(product.id)}
+                    </TableCell>
+                    <TableCell>{product.price} MAD</TableCell>
+                    <TableCell>
+                      {product.category?.name || "Sans catégorie"}
+                    </TableCell>
+                    <TableCell>
+                      {product.sizes.map((size) => size.size).join(", ")}
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge $available={product.status === "disponible"}>
+                        {product.status === "disponible" ? (
+                          <CheckCircle
+                            size={12}
+                            style={{ marginRight: "4px" }}
+                          />
+                        ) : (
+                          <XCircle size={12} style={{ marginRight: "4px" }} />
+                        )}
+                        {product.status === "disponible"
+                          ? "Disponible"
+                          : "Non Disponible"}
+                      </StatusBadge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "flex-end",
+                          gap: "8px",
+                        }}
                       >
-                        <Edit size={16} />
-                      </ActionButton>
-                      <ActionButton
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openDeleteDialog(product)}
-                      >
-                        <Trash2 size={16} />
-                      </ActionButton>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                        <ActionButton
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditProduct(product.id)}
+                        >
+                          <Edit size={16} />
+                        </ActionButton>
+                        <ActionButton
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openDeleteDialog(product)}
+                        >
+                          <Trash2 size={16} />
+                        </ActionButton>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableViewport>
         ) : (
           <EmptyState>
             <ShoppingBag size={48} />

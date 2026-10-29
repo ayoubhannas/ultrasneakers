@@ -18,37 +18,12 @@ const FeaturedProducts = () => {
         setLoading(true);
 
         const response = await axios.get(
-          "http://localhost:8000/api/product?featured=true"
+          "http://localhost:8000/api/product?featured=true",
         );
         setProducts(Array.isArray(response.data) ? response.data : []);
       } catch (error) {
         console.error(error);
-        setProducts([
-          {
-            id: 1,
-            name: "UltraBoost Pro",
-            price: 1899.9,
-            images: [{ path: "/placeholder.svg" }],
-          },
-          {
-            id: 2,
-            name: "AirFlex Runner",
-            price: 1599.9,
-            images: [{ path: "/placeholder.svg" }],
-          },
-          {
-            id: 3,
-            name: "CloudStep Elite",
-            price: 1999.9,
-            images: [{ path: "/placeholder.svg" }],
-          },
-          {
-            id: 4,
-            name: "Velocity X",
-            price: 1799.9,
-            images: [{ path: "/placeholder.svg" }],
-          },
-        ]);
+        setProducts([]);
       } finally {
         setLoading(false);
       }
@@ -162,20 +137,19 @@ const SectionSubtitle = styled.p`
 
 const ProductsGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: 1fr;
   gap: 2rem;
 
-  @media (max-width: 1200px) {
-    grid-template-columns: repeat(3, 1fr);
+  @media (min-width: 480px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  @media (max-width: 768px) {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1rem;
+  @media (min-width: 768px) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  @media (max-width: 480px) {
-    grid-template-columns: 1fr;
+  @media (min-width: 1200px) {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 `;
 
@@ -184,7 +158,9 @@ const ProductCard = styled.div`
   border: 1px solid ${(props) => props.theme.borderColor};
   border-radius: 8px;
   overflow: hidden;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  transition:
+    transform 0.3s ease,
+    box-shadow 0.3s ease;
 
   &:hover {
     transform: translateY(-5px);

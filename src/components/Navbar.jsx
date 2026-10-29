@@ -2,7 +2,7 @@
 
 import { Link } from "react-router-dom";
 import styled from "styled-components";
-import { Moon, Sun, Heart, ShoppingBag } from "lucide-react";
+import { Moon, Sun, Heart, ShoppingBag, Menu, X } from "lucide-react";
 import { useCart } from "../context/CartContext.jsx";
 import { useWishlist } from "../context/WishlistContext.jsx";
 import CartDrawer from "./CartDrawer.jsx";
@@ -14,6 +14,7 @@ const Navbar = ({ toggleTheme, theme }) => {
   const { wishlistCount } = useWishlist();
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isWishlistOpen, setIsWishlistOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const handleOpenCart = () => setIsCartOpen(true);
@@ -44,24 +45,90 @@ const Navbar = ({ toggleTheme, theme }) => {
       <BrandLogo to="/">ULTRASNEAKERS</BrandLogo>
 
       <NavIcons>
-        <IconButton onClick={toggleTheme}>
+        <IconButton onClick={toggleTheme} aria-label="Changer de thème">
           {theme === "light" ? <Moon size={20} /> : <Sun size={20} />}
         </IconButton>
-        <IconButtonWithBadge onClick={handleOpenWishlist}>
+        <IconButtonWithBadge
+          onClick={handleOpenWishlist}
+          aria-label={`Wishlist${wishlistCount ? `, ${wishlistCount} articles` : ""}`}
+        >
           <Heart size={20} />
           {wishlistCount > 0 && <Badge>{wishlistCount}</Badge>}
         </IconButtonWithBadge>
-        <IconButtonWithBadge onClick={() => setIsCartOpen(true)}>
+        <IconButtonWithBadge
+          onClick={() => setIsCartOpen(true)}
+          aria-label={`Panier${cartCount ? `, ${cartCount} articles` : ""}`}
+        >
           <ShoppingBag size={20} />
           {cartCount > 0 && <Badge>{cartCount}</Badge>}
         </IconButtonWithBadge>
       </NavIcons>
 
-      <MobileMenuButton>
-        <span></span>
-        <span></span>
-        <span></span>
+      <MobileMenuButton
+        type="button"
+        aria-label={isMobileMenuOpen ? "Fermer le menu" : "Ouvrir le menu"}
+        aria-expanded={isMobileMenuOpen}
+        onClick={() => setIsMobileMenuOpen((isOpen) => !isOpen)}
+      >
+        {isMobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
       </MobileMenuButton>
+
+      <MobileMenuPanel $isOpen={isMobileMenuOpen}>
+        <MobileNavLinks>
+          <NavLink
+            to="/new-arrivals"
+            onClick={() => setIsMobileMenuOpen(false)}
+          >
+            Nouveautés
+          </NavLink>
+          <NavLink to="/classe" onClick={() => setIsMobileMenuOpen(false)}>
+            Classe
+          </NavLink>
+          <NavLink to="/sport" onClick={() => setIsMobileMenuOpen(false)}>
+            Sport
+          </NavLink>
+          <NavLink to="/luxury" onClick={() => setIsMobileMenuOpen(false)}>
+            Luxury
+          </NavLink>
+        </MobileNavLinks>
+        <MobileMenuActions>
+          <MobileActionButton
+            type="button"
+            onClick={() => {
+              toggleTheme();
+              setIsMobileMenuOpen(false);
+            }}
+            aria-label="Changer de thème"
+          >
+            {theme === "light" ? <Moon size={20} /> : <Sun size={20} />}
+            <span>Thème</span>
+          </MobileActionButton>
+          <MobileActionButton
+            type="button"
+            onClick={() => {
+              handleOpenWishlist();
+              setIsMobileMenuOpen(false);
+            }}
+            aria-label={`Wishlist${wishlistCount ? `, ${wishlistCount} articles` : ""}`}
+          >
+            <Heart size={20} />
+            <span>Wishlist</span>
+            {wishlistCount > 0 && <Badge>{wishlistCount}</Badge>}
+          </MobileActionButton>
+          <MobileActionButton
+            type="button"
+            onClick={() => {
+              setIsCartOpen(true);
+              setIsMobileMenuOpen(false);
+            }}
+            aria-label={`Panier${cartCount ? `, ${cartCount} articles` : ""}`}
+          >
+            <ShoppingBag size={20} />
+            <span>Panier</span>
+            {cartCount > 0 && <Badge>{cartCount}</Badge>}
+          </MobileActionButton>
+        </MobileMenuActions>
+      </MobileMenuPanel>
 
       <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
 
@@ -72,18 +139,19 @@ const Navbar = ({ toggleTheme, theme }) => {
 
 const NavbarContainer = styled.nav`
   display: flex;
-  margin-top: -32px;
+  margin-top: 0;
   justify-content: space-between;
   align-items: center;
   padding: 1.5rem 2rem;
   position: sticky;
+  top: 0;
   z-index: 100;
   background-color: ${(props) => props.theme.background};
   transition: background-color 0.3s ease;
   border-bottom: 1px solid ${(props) => props.theme.borderColor};
 
   @media (max-width: 768px) {
-    padding: 1rem;
+    padding: 0.5rem 1rem;
   }
 `;
 
@@ -133,8 +201,8 @@ const BrandLogo = styled(Link)`
   text-decoration: none;
 
   @media (max-width: 768px) {
-    position: static;
-    transform: none;
+    font-size: 1.25rem;
+    letter-spacing: 2px;
   }
 `;
 
@@ -187,25 +255,62 @@ const Badge = styled.span`
 
 const MobileMenuButton = styled.button`
   display: none;
-  flex-direction: column;
-  justify-content: space-between;
+  align-items: center;
+  justify-content: center;
   background: none;
   border: none;
   cursor: pointer;
-  height: 20px;
-  width: 25px;
-
-  span {
-    display: block;
-    width: 25px;
-    height: 2px;
-    background-color: ${(props) => props.theme.text};
-    transition: all 0.3s ease;
-  }
+  height: 44px;
+  width: 44px;
+  color: ${(props) => props.theme.text};
 
   @media (max-width: 768px) {
     display: flex;
   }
+`;
+
+const MobileMenuPanel = styled.div`
+  display: none;
+
+  @media (max-width: 768px) {
+    display: ${(props) => (props.$isOpen ? "grid" : "none")};
+    gap: 1rem;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    padding: 1rem;
+    background-color: ${(props) => props.theme.background};
+    border-bottom: 1px solid ${(props) => props.theme.borderColor};
+    box-shadow: ${(props) => props.theme.shadow};
+  }
+`;
+
+const MobileNavLinks = styled.div`
+  display: grid;
+  gap: 0.25rem;
+
+  a {
+    padding: 0.75rem 0.25rem;
+    border-bottom: 1px solid ${(props) => props.theme.borderColor};
+  }
+`;
+
+const MobileMenuActions = styled.div`
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+`;
+
+const MobileActionButton = styled(IconButtonWithBadge)`
+  width: 100%;
+  height: auto;
+  min-height: 56px;
+  padding: 0.5rem 0.25rem;
+  border-radius: 0.375rem;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.75rem;
 `;
 
 export default Navbar;

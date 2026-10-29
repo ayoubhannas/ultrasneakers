@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import styled from "styled-components";
 import { Search, Filter, Eye, Phone, Package, ShoppingBag } from "lucide-react";
+import api from "../../Api/authApi";
 
 const Button = styled.button`
   display: inline-flex;
@@ -28,7 +29,7 @@ const Button = styled.button`
       }
     `
       : props.variant === "ghost"
-      ? `
+        ? `
       background-color: transparent;
       border: none;
       color: ${props.theme.text};
@@ -37,7 +38,7 @@ const Button = styled.button`
         background-color: ${props.theme.hoverBackground};
       }
     `
-      : `
+        : `
       background-color: ${props.theme.primary};
       border: none;
       color: white;
@@ -78,7 +79,14 @@ const Label = styled.label`
 
 const Table = styled.table`
   width: 100%;
+  min-width: 760px;
   border-collapse: collapse;
+`;
+
+const TableViewport = styled.div`
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 `;
 
 const TableHeader = styled.thead`
@@ -277,15 +285,15 @@ const FilterContainer = styled.div`
 const StatusBadge = styled(Badge)`
   background-color: ${(props) => {
     switch (props.$status) {
-      case "New":
+      case "nouvelle":
         return "rgba(255, 77, 77, 0.1)";
-      case "Pending":
-        return "rgba(234, 179, 8, 0.1)";
-      case "Confirmed":
+      case "confirmée":
         return "rgba(59, 130, 246, 0.1)";
-      case "Shipped":
+      case "expédiée":
         return "rgba(16, 185, 129, 0.1)";
-      case "Cancelled":
+      case "livrée":
+        return "rgba(16, 185, 129, 0.1)";
+      case "annulée":
         return "rgba(239, 68, 68, 0.1)";
       default:
         return "rgba(107, 114, 128, 0.1)";
@@ -293,15 +301,15 @@ const StatusBadge = styled(Badge)`
   }};
   color: ${(props) => {
     switch (props.$status) {
-      case "New":
+      case "nouvelle":
         return "#ff4d4d";
-      case "Pending":
-        return "#eab308";
-      case "Confirmed":
+      case "confirmée":
         return "#3b82f6";
-      case "Shipped":
+      case "expédiée":
         return "#10b981";
-      case "Cancelled":
+      case "livrée":
+        return "#10b981";
+      case "annulée":
         return "#ef4444";
       default:
         return "#6b7280";
@@ -357,6 +365,7 @@ const DetailValue = styled.span`
 const ProductItem = styled.div`
   display: flex;
   align-items: center;
+  gap: 1rem;
   padding: 0.75rem 0;
   border-bottom: 1px solid ${(props) => props.theme.borderColor};
 
@@ -366,16 +375,36 @@ const ProductItem = styled.div`
 `;
 
 const ProductImage = styled.img`
-  width: 3rem;
-  height: 3rem;
-  object-fit: cover;
+  display: block;
+  width: 4rem;
+  height: 4rem;
+  flex: 0 0 4rem;
+  object-fit: contain;
   border-radius: 0.25rem;
-  margin-right: 1rem;
   border: 1px solid ${(props) => props.theme.borderColor};
+  background-color: ${(props) => props.theme.backgroundAlt};
+`;
+
+const ProductImageFallback = styled.div`
+  width: 4rem;
+  height: 4rem;
+  flex: 0 0 4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  border: 1px solid ${(props) => props.theme.borderColor};
+  border-radius: 0.25rem;
+  background-color: ${(props) => props.theme.backgroundAlt};
+  color: ${(props) => props.theme.textSecondary};
+  font-size: 0.625rem;
+  line-height: 1.2;
+  text-align: center;
 `;
 
 const ProductInfo = styled.div`
   flex: 1;
+  min-width: 0;
 `;
 
 const ProductName = styled.div`
@@ -386,6 +415,62 @@ const ProductMeta = styled.div`
   font-size: 0.875rem;
   color: ${(props) => props.theme.textSecondary};
 `;
+
+const getOrderItemImageUrl = (item) => {
+  const product = item?.product ?? item?.products;
+  const images = Array.isArray(product?.images)
+    ? product.images
+    : product?.images
+      ? [product.images]
+      : [];
+  const image = images.find((entry) => entry) ?? {};
+  const source = [
+    item?.product_image_url,
+    item?.product_image,
+    item?.image_url,
+    product?.image_url,
+    product?.image,
+    image?.image_url,
+    image?.url,
+    image?.path,
+  ].find((value) => typeof value === "string" && value.trim());
+
+  if (!source) return null;
+
+  const imagePath = source.trim();
+  if (/^(https?:)?\/\//i.test(imagePath) || imagePath.startsWith("data:")) {
+    return imagePath;
+  }
+
+  const apiBaseUrl = api.defaults.baseURL || window.location.origin;
+  const normalizedPath = imagePath.replace(/^\/+/, "");
+  const publicPath = normalizedPath.startsWith("storage/")
+    ? `/${normalizedPath}`
+    : `/storage/${normalizedPath}`;
+
+  return new URL(publicPath, apiBaseUrl).toString();
+};
+
+const OrderProductImage = ({ item, productName }) => {
+  const [failedImageUrl, setFailedImageUrl] = useState(null);
+  const imageUrl = getOrderItemImageUrl(item);
+
+  if (!imageUrl || failedImageUrl === imageUrl) {
+    return (
+      <ProductImageFallback role="img" aria-label="Image non disponible">
+        Image non disponible
+      </ProductImageFallback>
+    );
+  }
+
+  return (
+    <ProductImage
+      src={imageUrl}
+      alt={productName}
+      onError={() => setFailedImageUrl(imageUrl)}
+    />
+  );
+};
 
 const EmptyState = styled.div`
   display: flex;
@@ -417,98 +502,43 @@ const OrderList = () => {
   const [orderDetailOpen, setOrderDetailOpen] = useState(false);
   const [changeStatusOpen, setChangeStatusOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    setTimeout(() => {
-      setOrders([
-        {
-          id: "ORD-3245",
-          customer: {
-            name: "John Smith",
-            phone: "+1 (555) 123-4567",
-            city: "New York",
-            address: "123 Broadway St, Apt 4B",
-          },
-          product: {
-            name: "Air Max 270",
-            category: "Sport",
-            size: 42,
-          },
-          date: "2023-05-15",
-          status: "New",
-        },
-        {
-          id: "ORD-3244",
-          customer: {
-            name: "Sarah Johnson",
-            phone: "+1 (555) 987-6543",
-            city: "Los Angeles",
-            address: "456 Sunset Blvd",
-          },
-          product: {
-            name: "Classic Leather",
-            category: "Classe",
-            size: 39,
-          },
-          date: "2023-05-14",
-          status: "Confirmed",
-        },
-        {
-          id: "ORD-3243",
-          customer: {
-            name: "Michael Brown",
-            phone: "+1 (555) 456-7890",
-            city: "Chicago",
-            address: "789 Michigan Ave",
-          },
-          product: {
-            name: "Ultra Boost",
-            category: "Sport",
-            size: 44,
-          },
-          date: "2023-05-13",
-          status: "Shipped",
-        },
-        {
-          id: "ORD-3242",
-          customer: {
-            name: "Emily Davis",
-            phone: "+1 (555) 234-5678",
-            city: "Miami",
-            address: "101 Ocean Drive",
-          },
-          product: {
-            name: "Luxury Sneaker",
-            category: "Luxey",
-            size: 41,
-          },
-          date: "2023-05-12",
-          status: "Pending",
-        },
-        {
-          id: "ORD-3241",
-          customer: {
-            name: "David Wilson",
-            phone: "+1 (555) 876-5432",
-            city: "Seattle",
-            address: "202 Pine Street",
-          },
-          product: {
-            name: "Street Runner",
-            category: "Classe",
-            size: 43,
-          },
-          date: "2023-05-11",
-          status: "Cancelled",
-        },
-      ]);
-      setLoading(false);
-    }, 1000);
+    const fetchOrders = async () => {
+      try {
+        const response = await api.get("/api/admin/orders");
+        setOrders(response.data.data);
+      } catch (requestError) {
+        setError(
+          requestError.response?.data?.message ||
+            "Impossible de charger les commandes.",
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOrders();
+    const interval = window.setInterval(fetchOrders, 30000);
+    return () => window.clearInterval(interval);
   }, []);
 
-  const handleViewOrder = (order) => {
+  const handleViewOrder = async (order) => {
     setSelectedOrder(order);
     setOrderDetailOpen(true);
+
+    try {
+      const response = await api.get(`/api/admin/orders/${order.id}`);
+      if (response.data?.data) {
+        setSelectedOrder(response.data.data);
+      }
+    } catch (requestError) {
+      setError(
+        requestError.response?.data?.message ||
+          "Impossible de charger les détails complets de la commande.",
+      );
+    }
   };
 
   const handleChangeStatus = (order) => {
@@ -516,21 +546,36 @@ const OrderList = () => {
     setChangeStatusOpen(true);
   };
 
-  const updateOrderStatus = (e) => {
+  const updateOrderStatus = async (e) => {
     const newStatus = e.target.value;
-    setOrders(
-      orders.map((order) =>
-        order.id === selectedOrder.id ? { ...order, status: newStatus } : order
-      )
-    );
-    setChangeStatusOpen(false);
+    try {
+      const response = await api.patch(
+        `/api/admin/orders/${selectedOrder.id}/status`,
+        { status: newStatus },
+      );
+      const updatedOrder = response.data.data;
+      setOrders((currentOrders) =>
+        currentOrders.map((order) =>
+          order.id === updatedOrder.id ? updatedOrder : order,
+        ),
+      );
+      setSelectedOrder(updatedOrder);
+      setChangeStatusOpen(false);
+    } catch (requestError) {
+      setError(
+        requestError.response?.data?.message ||
+          "Impossible de modifier le statut de la commande.",
+      );
+    }
   };
 
   const filteredOrders = orders.filter((order) => {
     const matchesSearch =
-      order.customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.customer.phone.includes(searchTerm) ||
-      order.id.toLowerCase().includes(searchTerm.toLowerCase());
+      `${order.customer_first_name} ${order.customer_last_name}`
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase()) ||
+      order.customer_phone.includes(searchTerm) ||
+      order.order_number.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus =
       statusFilter === "all" || order.status === statusFilter;
     return matchesSearch && matchesStatus;
@@ -543,15 +588,15 @@ const OrderList = () => {
 
   const getStatusTranslation = (status) => {
     switch (status) {
-      case "New":
+      case "nouvelle":
         return "Nouveau";
-      case "Pending":
-        return "En Attente";
-      case "Confirmed":
+      case "confirmée":
         return "Confirmé";
-      case "Shipped":
+      case "expédiée":
         return "Expédié";
-      case "Cancelled":
+      case "livrée":
+        return "Livré";
+      case "annulée":
         return "Annulé";
       default:
         return status;
@@ -560,6 +605,9 @@ const OrderList = () => {
 
   return (
     <>
+      {error && (
+        <div style={{ color: "#dc2626", marginBottom: "1rem" }}>{error}</div>
+      )}
       <OrderListHeader>
         <SearchContainer>
           <SearchIcon>
@@ -597,7 +645,7 @@ const OrderList = () => {
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => {
-                  setStatusFilter("New");
+                  setStatusFilter("nouvelle");
                   setDropdownOpen(false);
                 }}
               >
@@ -605,15 +653,7 @@ const OrderList = () => {
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => {
-                  setStatusFilter("Pending");
-                  setDropdownOpen(false);
-                }}
-              >
-                En Attente
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => {
-                  setStatusFilter("Confirmed");
+                  setStatusFilter("confirmée");
                   setDropdownOpen(false);
                 }}
               >
@@ -621,7 +661,7 @@ const OrderList = () => {
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => {
-                  setStatusFilter("Shipped");
+                  setStatusFilter("expédiée");
                   setDropdownOpen(false);
                 }}
               >
@@ -629,7 +669,15 @@ const OrderList = () => {
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => {
-                  setStatusFilter("Cancelled");
+                  setStatusFilter("livrée");
+                  setDropdownOpen(false);
+                }}
+              >
+                Livré
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  setStatusFilter("annulée");
                   setDropdownOpen(false);
                 }}
               >
@@ -646,71 +694,78 @@ const OrderList = () => {
             Loading orders...
           </div>
         ) : filteredOrders.length > 0 ? (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>ID Commande</TableHead>
-                <TableHead>Client</TableHead>
-                <TableHead>Produit</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Statut</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredOrders.map((order) => (
-                <TableRow key={order.id}>
-                  <TableCell className="font-medium">{order.id}</TableCell>
-                  <TableCell>
-                    <div>
-                      <div>{order.customer.name}</div>
-                      <div style={{ fontSize: "0.75rem", color: "#666" }}>
-                        {order.customer.phone}
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div>
-                      <div>{order.product.name}</div>
-                      <div style={{ fontSize: "0.75rem", color: "#666" }}>
-                        {order.product.category}, Size: {order.product.size}
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>{formatDate(order.date)}</TableCell>
-                  <TableCell>
-                    <StatusBadge $status={order.status}>
-                      {getStatusTranslation(order.status)}
-                    </StatusBadge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "flex-end",
-                        gap: "8px",
-                      }}
-                    >
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleViewOrder(order)}
-                      >
-                        <Eye size={16} />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleChangeStatus(order)}
-                      >
-                        Changer le Statut
-                      </Button>
-                    </div>
-                  </TableCell>
+          <TableViewport>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>ID Commande</TableHead>
+                  <TableHead>Client</TableHead>
+                  <TableHead>Produit</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Statut</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredOrders.map((order) => (
+                  <TableRow key={order.id}>
+                    <TableCell className="font-medium">
+                      {order.order_number}
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <div>
+                          {order.customer_first_name} {order.customer_last_name}
+                        </div>
+                        <div style={{ fontSize: "0.75rem", color: "#666" }}>
+                          {order.customer_phone}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <div>{order.items?.[0]?.product_name}</div>
+                        <div style={{ fontSize: "0.75rem", color: "#666" }}>
+                          Taille: {order.items?.[0]?.size} · Quantité:{" "}
+                          {order.items?.[0]?.quantity}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>{formatDate(order.created_at)}</TableCell>
+                    <TableCell>
+                      <StatusBadge $status={order.status}>
+                        {getStatusTranslation(order.status)}
+                      </StatusBadge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "flex-end",
+                          gap: "8px",
+                        }}
+                      >
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleViewOrder(order)}
+                        >
+                          <Eye size={16} />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleChangeStatus(order)}
+                        >
+                          Changer le Statut
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableViewport>
         ) : (
           <EmptyState>
             <Package size={48} />
@@ -744,19 +799,22 @@ const OrderList = () => {
                 </DetailHeader>
                 <DetailItem>
                   <DetailLabel>Nom:</DetailLabel>
-                  <DetailValue>{selectedOrder.customer.name}</DetailValue>
+                  <DetailValue>
+                    {selectedOrder.customer_first_name}{" "}
+                    {selectedOrder.customer_last_name}
+                  </DetailValue>
                 </DetailItem>
                 <DetailItem>
                   <DetailLabel>Téléphone:</DetailLabel>
-                  <DetailValue>{selectedOrder.customer.phone}</DetailValue>
+                  <DetailValue>{selectedOrder.customer_phone}</DetailValue>
                 </DetailItem>
                 <DetailItem>
                   <DetailLabel>Ville:</DetailLabel>
-                  <DetailValue>{selectedOrder.customer.city}</DetailValue>
+                  <DetailValue>{selectedOrder.city}</DetailValue>
                 </DetailItem>
                 <DetailItem>
                   <DetailLabel>Adresse:</DetailLabel>
-                  <DetailValue>{selectedOrder.customer.address}</DetailValue>
+                  <DetailValue>{selectedOrder.address}</DetailValue>
                 </DetailItem>
               </DetailSection>
 
@@ -767,11 +825,13 @@ const OrderList = () => {
                 </DetailHeader>
                 <DetailItem>
                   <DetailLabel>ID Commande:</DetailLabel>
-                  <DetailValue>{selectedOrder.id}</DetailValue>
+                  <DetailValue>{selectedOrder.order_number}</DetailValue>
                 </DetailItem>
                 <DetailItem>
                   <DetailLabel>Date:</DetailLabel>
-                  <DetailValue>{formatDate(selectedOrder.date)}</DetailValue>
+                  <DetailValue>
+                    {formatDate(selectedOrder.created_at)}
+                  </DetailValue>
                 </DetailItem>
                 <DetailItem>
                   <DetailLabel>Statut:</DetailLabel>
@@ -781,6 +841,16 @@ const OrderList = () => {
                     </StatusBadge>
                   </DetailValue>
                 </DetailItem>
+                <DetailItem>
+                  <DetailLabel>Total:</DetailLabel>
+                  <DetailValue>
+                    Sous-total {selectedOrder.subtotal} MAD + livraison{" "}
+                    {Number(selectedOrder.delivery_fee) === 0
+                      ? "gratuite (0 MAD)"
+                      : `${selectedOrder.delivery_fee} MAD`}{" "}
+                    = {selectedOrder.total} MAD
+                  </DetailValue>
+                </DetailItem>
               </DetailSection>
 
               <DetailSection style={{ gridColumn: "1 / -1" }}>
@@ -788,19 +858,25 @@ const OrderList = () => {
                   <ShoppingBag size={16} />
                   Informations Produit
                 </DetailHeader>
-                <ProductItem>
-                  <ProductImage
-                    src="/placeholder.svg?height=100&width=100"
-                    alt={selectedOrder.product.name}
-                  />
-                  <ProductInfo>
-                    <ProductName>{selectedOrder.product.name}</ProductName>
-                    <ProductMeta>
-                      Catégorie: {selectedOrder.product.category} | Taille:{" "}
-                      {selectedOrder.product.size}
-                    </ProductMeta>
-                  </ProductInfo>
-                </ProductItem>
+                {(selectedOrder.items || []).map((item) => {
+                  const productName =
+                    item.product_name || item.product?.name || "Produit";
+
+                  return (
+                    <ProductItem key={item.id ?? `${productName}-${item.size}`}>
+                      <OrderProductImage
+                        item={item}
+                        productName={productName}
+                      />
+                      <ProductInfo>
+                        <ProductName>{productName}</ProductName>
+                        <ProductMeta>
+                          Taille: {item.size} | Quantité: {item.quantity}
+                        </ProductMeta>
+                      </ProductInfo>
+                    </ProductItem>
+                  );
+                })}
               </DetailSection>
             </OrderDetailGrid>
           )}
@@ -839,11 +915,11 @@ const OrderList = () => {
                 onChange={updateOrderStatus}
                 style={{ marginTop: "0.5rem" }}
               >
-                <option value="New">Nouveau</option>
-                <option value="Pending">En Attente</option>
-                <option value="Confirmed">Confirmé</option>
-                <option value="Shipped">Expédié</option>
-                <option value="Cancelled">Annulé</option>
+                <option value="nouvelle">Nouveau</option>
+                <option value="confirmée">Confirmé</option>
+                <option value="expédiée">Expédié</option>
+                <option value="livrée">Livré</option>
+                <option value="annulée">Annulé</option>
               </Select>
             </div>
           )}
